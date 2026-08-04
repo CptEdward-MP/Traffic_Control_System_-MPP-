@@ -246,3 +246,87 @@ If additional time is available, the following features may be explored.
 - Graphical PC dashboard
 - AI-based traffic prediction
 - Camera-based vehicle detection
+
+# Proposed Work Distribution
+
+> **Note:** This is only a proposed division of work based on my current understanding of the project and everyone's technical experience. The responsibilities can be modified later depending on personal interest, technical capability, and any new project requirements.
+
+---
+
+# Member 1
+
+## System Integration & Hardware
+
+### Responsibilities
+
+- Procure the required hardware components.
+- Assemble the complete hardware setup.
+- Wire all peripherals to the STM32F411.
+- Perform soldering and hardware assembly where required.
+- Integrate all software modules developed by the team.
+- Ensure all hardware and software components work together as a complete system.
+- Assist other members during final integration and testing.
+
+---
+
+# Member 2
+
+## Traffic Management Algorithm
+
+### Responsibilities
+
+- Design the traffic management algorithm.
+- Implement the traffic control logic.
+- Implement adaptive signal timing.
+- Implement gate control logic.
+- Test the algorithm using software simulations and unit tests before hardware integration.
+- Improve and optimize the algorithm based on testing results.
+
+---
+
+# Member 3
+
+## Sensor & Motor Control
+
+### Responsibilities
+
+- Interface the selected vehicle detection sensor (ToF / IR / Ultrasonic).
+- Develop the software required to detect and count vehicles.
+- Interface and control the servo motor.
+- Test sensor accuracy and reliability.
+- Verify proper operation before integration.
+
+---
+
+# Member 4
+
+## User Interface & Debugging
+
+### Responsibilities
+
+- Develop UART debugging functionality.
+- Design useful debug messages for development.
+- Interface the LCD (if used).
+- Implement pedestrian push-button handling.
+- Test user interaction features.
+- Assist during system testing and debugging.
+
+---
+
+# General Responsibilities
+
+Every team member is expected to:
+
+- Use Git and GitHub for version control.
+- Create feature branches for their work.
+- Submit Pull Requests instead of pushing directly to the main branch.
+- Review documentation before starting implementation.
+- Document any important design decisions.
+- Help other team members whenever possible.
+- Participate in testing and final system integration.
+
+---
+
+# Final Note
+
+This work distribution is intended only as an initial proposal. It can be adjusted at any point during the project after discussion with the team. The primary objective is to ensure that everyone contributes meaningfully while also getting the opportunity to learn different aspects of embedded systems development.
