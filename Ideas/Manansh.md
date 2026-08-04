@@ -253,7 +253,7 @@ If additional time is available, the following features may be explored.
 
 ---
 
-# Member 1
+# Manansh
 
 ## System Integration & Hardware
 
@@ -269,7 +269,7 @@ If additional time is available, the following features may be explored.
 
 ---
 
-# Member 2
+# Vasudev
 
 ## Traffic Management Algorithm
 
@@ -284,7 +284,7 @@ If additional time is available, the following features may be explored.
 
 ---
 
-# Member 3
+# Vaishali
 
 ## Sensor & Motor Control
 
@@ -298,7 +298,7 @@ If additional time is available, the following features may be explored.
 
 ---
 
-# Member 4
+# Bharath
 
 ## User Interface & Debugging
 
