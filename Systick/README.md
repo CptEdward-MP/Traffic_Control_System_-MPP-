@@ -1,77 +1,92 @@
-# PAL_Time / SysTick — README
+# PAL_Time — User Guide
 
 ## Purpose
 
-`PAL_Time` is the application-facing timing API for our STM32F411 bare-metal project.
+`PAL_Time` provides simple time-related functions for application code.
 
-The goal is that a teammate can use timing **without knowing how SysTick works internally**.
+The main goal of this module is to allow application developers to work with time **without needing to understand the underlying hardware or operating system implementation**.
 
----
-
-## 1. Files
-
-```text
-pal_time.h
-pal_time.c
-```
-
-The public API is:
-
-```c
-void PAL_Time_Init(void);
-void PAL_Time_DelayMs(uint32_t ms);
-uint32_t PAL_Time_GetMs(void);
-```
-
-Normally, application code only includes:
+You only need to know the `PAL_Time` API.
 
 ```c
 #include "pal_time.h"
 ```
 
----
-
-## 2. Initialization
-
-Call `PAL_Time_Init()` once during startup:
+The main functions are:
 
 ```c
-int main(void)
-{
-    // Other initialization
+void PAL_Time_Init(void);
 
-    PAL_Time_Init();
+void PAL_Time_DelayMs(uint32_t ms);
 
-    while (1)
-    {
-        // Application
-    }
-}
+uint32_t PAL_Time_GetMs(void);
 ```
 
-Do not repeatedly call it inside the main loop.
-
 ---
 
-## 3. Delay
+# 1. Initialization
 
-To wait for a number of milliseconds:
+Initialize `PAL_Time` once during application startup:
 
 ```c
-PAL_Time_DelayMs(500);
+PAL_Time_Init();
 ```
 
 Example:
 
 ```c
-PAL_GPIO_Set(&LED1);
-PAL_Time_DelayMs(500);
+#include "pal_time.h"
 
-PAL_GPIO_Reset(&LED1);
+int main(void)
+{
+    PAL_Time_Init();
+
+    while (1)
+    {
+        /* Application code */
+    }
+}
+```
+
+You normally only need to call `PAL_Time_Init()` **once**.
+
+---
+
+# 2. Delay
+
+If you need the application to wait for a specific amount of time, use:
+
+```c
 PAL_Time_DelayMs(500);
 ```
 
-This gives approximately:
+The value is specified in milliseconds.
+
+For example:
+
+```c
+PAL_Time_DelayMs(100);
+```
+
+means:
+
+```text
+Wait approximately 100 milliseconds
+```
+
+### Example
+
+```c
+PAL_GPIO_Set(&LED1);
+
+PAL_Time_DelayMs(500);
+
+PAL_GPIO_Reset(&LED1);
+
+PAL_Time_DelayMs(500);
+```
+
+This produces approximately:
 
 ```text
 LED ON
@@ -82,14 +97,14 @@ LED OFF
   |
   | 500 ms
   |
-repeat
+LED ON
+  |
+  ...
 ```
-
-This is a **blocking delay**.
 
 ---
 
-## 4. Get Current System Time
+# 3. Getting the Current Time
 
 Use:
 
@@ -97,29 +112,54 @@ Use:
 uint32_t now = PAL_Time_GetMs();
 ```
 
-The value represents milliseconds since:
+This gives the current system time in milliseconds.
+
+For example:
 
 ```c
-PAL_Time_Init();
+uint32_t now = PAL_Time_GetMs();
 ```
 
-was called.
+The value can be used to determine how much time has passed.
 
-Example:
+---
+
+# 4. Measuring Elapsed Time
+
+A common use of `PAL_Time_GetMs()` is measuring how long something takes.
 
 ```c
 uint32_t start = PAL_Time_GetMs();
 
-/* do some work */
+/* Do some work */
 
 uint32_t elapsed = PAL_Time_GetMs() - start;
 ```
 
+For example:
+
+```c
+uint32_t start = PAL_Time_GetMs();
+
+/* Perform operation */
+
+uint32_t elapsed = PAL_Time_GetMs() - start;
+
+if (elapsed >= 100U)
+{
+    /* At least 100 ms have passed */
+}
+```
+
+This is useful for timeouts and periodic operations.
+
 ---
 
-## 5. Non-blocking Periodic Work
+# 5. Periodic Operations
 
-For periodic work, prefer checking the system time instead of blocking:
+If you want something to happen periodically, you can use `PAL_Time_GetMs()` instead of waiting.
+
+Example:
 
 ```c
 uint32_t last_time = PAL_Time_GetMs();
@@ -132,373 +172,296 @@ while (1)
     {
         last_time = now;
 
-        // Do something every 100 ms
+        /* Do something every 100 ms */
     }
 
-    // Other work can continue here
+    /* Other application code */
 }
 ```
 
-Multiple modules can use the same system time:
-
-```text
-                 PAL_Time
-                    |
-              system time
-                    |
-        +-----------+-----------+
-        |           |           |
-       UART       Sensor       LED
-      timeout     timeout     periodic
-```
+This allows the application to continue doing other work between periodic operations.
 
 ---
 
-## 6. Complete LED Blink Example
+# 6. Example: Periodic Sensor Reading
+
+Suppose a sensor needs to be read every 50 ms:
 
 ```c
-#include "stm32f411xe.h"
-#include "pal_gpio.h"
-#include "pal_time.h"
+uint32_t last_sensor_update = PAL_Time_GetMs();
 
-static PAL_GPIO_Pin_t LED1 =
+while (1)
 {
-    .port = GPIOC,
-    .pin  = 13U
-};
+    uint32_t now = PAL_Time_GetMs();
 
-int main(void)
-{
-    PAL_GPIO_Init(&LED1,
-                  PAL_GPIO_MODE_OUTPUT,
-                  PAL_GPIO_NOPULL,
-                  PAL_GPIO_SPEED_LOW);
-
-    PAL_Time_Init();
-
-    while (1)
+    if ((now - last_sensor_update) >= 50U)
     {
-        PAL_GPIO_Set(&LED1);
-        PAL_Time_DelayMs(500);
+        last_sensor_update = now;
 
-        PAL_GPIO_Reset(&LED1);
-        PAL_Time_DelayMs(500);
+        Read_Sensor();
+    }
+
+    /* Other application work */
+}
+```
+
+The sensor update therefore occurs approximately every:
+
+```text
+50 ms
+```
+
+---
+
+# 7. Example: Multiple Periodic Operations
+
+Different parts of the application can maintain their own timestamps.
+
+```c
+uint32_t last_sensor = PAL_Time_GetMs();
+uint32_t last_led    = PAL_Time_GetMs();
+uint32_t last_uart   = PAL_Time_GetMs();
+
+while (1)
+{
+    uint32_t now = PAL_Time_GetMs();
+
+    if ((now - last_sensor) >= 10U)
+    {
+        last_sensor = now;
+
+        /* Sensor update */
+    }
+
+    if ((now - last_led) >= 500U)
+    {
+        last_led = now;
+
+        /* LED update */
+    }
+
+    if ((now - last_uart) >= 1000U)
+    {
+        last_uart = now;
+
+        /* UART update */
     }
 }
 ```
 
----
-
-## 7. What You Do NOT Need to Know
-
-If you are only using PAL_Time, you do not need to understand these first:
+Here:
 
 ```text
-SysTick->CTRL
-SysTick->LOAD
-SysTick->VAL
-COUNTFLAG
-CLKSOURCE
-TICKINT
-RELOAD
-SysTick_Handler()
+Sensor -> every 10 ms
+LED    -> every 500 ms
+UART   -> every 1000 ms
 ```
 
-Those are implementation details.
-
-The application-facing interface is simply:
-
-```c
-PAL_Time_Init();
-PAL_Time_DelayMs(...);
-PAL_Time_GetMs();
-```
+All three operations use the same `PAL_Time` module.
 
 ---
 
-## 8. Current V0 Limitation
+# 8. Which Function Should I Use?
 
-PAL_Time V0 assumes:
+## I need to wait
 
-```text
-Processor clock = 16 MHz
-```
-
-The implementation therefore calculates SysTick timing using:
-
-```c
-#define PAL_TIME_CPU_HZ 16000000U
-```
-
-If the processor clock is later changed, the **PAL_Time implementation must be updated**.
-
-For example:
-
-```text
-V0:
-
-16 MHz CPU
-    ↓
-SysTick
-    ↓
-1 ms tick
-    ↓
-PAL_Time
-```
-
-Later:
-
-```text
-84 MHz CPU
-    ↓
-SysTick
-    ↓
-new reload value
-    ↓
-1 ms tick
-    ↓
-PAL_Time
-```
-
-The application API should remain unchanged:
-
-```c
-PAL_Time_Init();
-PAL_Time_DelayMs(...);
-PAL_Time_GetMs();
-```
-
----
-
-## 9. SysTick Handler Ownership
-
-There must be exactly **one**:
-
-```c
-void SysTick_Handler(void)
-```
-
-in the final firmware.
-
-Our PAL_Time implementation uses:
-
-```c
-void SysTick_Handler(void)
-{
-    system_ms++;
-}
-```
-
-If a CubeIDE/HAL-generated file already contains:
-
-```c
-void SysTick_Handler(void)
-{
-    HAL_IncTick();
-}
-```
-
-it conflicts with PAL_Time.
-
-For the **no-HAL version**, the HAL SysTick handler must not also be present.
-
----
-
-## 10. Is This HAL?
-
-No.
-
-The application uses:
-
-```c
-PAL_Time_DelayMs(500);
-```
-
-but PAL_Time V0 directly configures the Cortex-M4 SysTick registers.
-
-The conceptual stack is:
-
-```text
-Application
-     ↓
-PAL_Time
-     ↓
-CMSIS/device definitions
-     ↓
-Cortex-M4 SysTick
-     ↓
-Hardware
-```
-
-It is not:
-
-```text
-Application
-     ↓
-HAL
-     ↓
-SysTick
-```
-
-Using:
-
-```c
-#include "stm32f411xe.h"
-```
-
-provides register definitions and does not mean that HAL is being used.
-
----
-
-## 11. Which Function Should I Use?
-
-### I just need to wait
+Use:
 
 ```c
 PAL_Time_DelayMs(100);
 ```
 
-### I need the current time
+---
+
+## I need the current time
+
+Use:
 
 ```c
 uint32_t now = PAL_Time_GetMs();
 ```
 
-### I need something to happen periodically
+---
 
-Use `PAL_Time_GetMs()` with a timestamp:
+## I need to measure how long something took
+
+Use:
+
+```c
+uint32_t start = PAL_Time_GetMs();
+
+/* Work */
+
+uint32_t elapsed = PAL_Time_GetMs() - start;
+```
+
+---
+
+## I need something to happen periodically
+
+Use:
+
+```c
+uint32_t last_time = PAL_Time_GetMs();
+
+while (1)
+{
+    uint32_t now = PAL_Time_GetMs();
+
+    if ((now - last_time) >= period)
+    {
+        last_time = now;
+
+        /* Do work */
+    }
+}
+```
+
+---
+
+# 9. Blocking vs Periodic Timing
+
+`PAL_Time_DelayMs()` is useful when you simply need to wait:
+
+```c
+PAL_Time_DelayMs(500);
+```
+
+However, if your application needs to perform multiple activities, timestamp-based timing is usually more appropriate:
 
 ```c
 if ((PAL_Time_GetMs() - last_time) >= period)
 {
     last_time = PAL_Time_GetMs();
 
-    // Do work
+    /* Do work */
 }
 ```
 
----
-
-## 12. Current Architecture
-
-```text
-                    Application
-                         |
-                +--------+--------+
-                |                 |
-                v                 v
-            PAL_GPIO          PAL_Time
-                                  |
-                                  v
-                               SysTick
-                                  |
-                                  v
-                             CPU clock
-```
-
-Application code knows about:
-
-```text
-PAL_GPIO
-PAL_Time
-```
-
-It does not need to know the underlying registers.
-
----
-
-## 13. Future Improvements
-
-### V1 — Clock-aware PAL_Time
-
-Remove the hard-coded:
+For example, instead of:
 
 ```c
-16000000U
+PAL_Time_DelayMs(100);
+
+Read_Sensor();
+
+PAL_Time_DelayMs(100);
+
+Update_LED();
 ```
 
-and calculate the SysTick reload value from the actual processor clock.
-
-```text
-RCC clock configuration
-        ↓
-actual CPU frequency
-        ↓
-PAL_Time
-        ↓
-SysTick reload
-```
-
-### V2 — More timing utilities
-
-Possible future APIs:
-
-```c
-PAL_Time_ElapsedMs(...)
-PAL_Time_HasElapsed(...)
-```
-
-### V3 — Different hardware implementation
-
-If we later decide another hardware timer is more appropriate:
-
-```text
-PAL_Time
-   |
-   +--> SysTick
-```
-
-could become:
-
-```text
-PAL_Time
-   |
-   +--> TIMx
-```
-
-without requiring application code to change.
+you can structure the application around periodic checks so different activities can run independently.
 
 ---
 
-## 14. Quick Reference
+# 10. Quick Reference
 
-Include:
+### Include
 
 ```c
 #include "pal_time.h"
 ```
 
-Initialize once:
+### Initialize
 
 ```c
 PAL_Time_Init();
 ```
 
-Delay:
+Call once during startup.
+
+### Delay
 
 ```c
 PAL_Time_DelayMs(1000);
 ```
 
-Get current time:
+Wait approximately 1000 ms.
+
+### Get time
 
 ```c
 uint32_t now = PAL_Time_GetMs();
 ```
 
-Periodic operation:
+Get the current time in milliseconds.
+
+### Measure elapsed time
 
 ```c
-if ((PAL_Time_GetMs() - last_time) >= period)
-{
-    last_time = PAL_Time_GetMs();
+uint32_t start = PAL_Time_GetMs();
 
-    // Do work
+/* Work */
+
+uint32_t elapsed = PAL_Time_GetMs() - start;
+```
+
+### Run something periodically
+
+```c
+uint32_t last_time = PAL_Time_GetMs();
+
+while (1)
+{
+    uint32_t now = PAL_Time_GetMs();
+
+    if ((now - last_time) >= period)
+    {
+        last_time = now;
+
+        /* Do work */
+    }
 }
 ```
 
 ---
 
-## Mental Model
+# 11. What You Need to Know
 
-> **PAL_Time gives the application a simple concept of time while hiding the SysTick implementation underneath.**
+To use `PAL_Time`, you only need to understand three concepts:
+
+```text
+PAL_Time_Init()
+        |
+        v
+Start the timing service
+```
+
+```text
+PAL_Time_DelayMs(ms)
+        |
+        v
+Wait for the requested time
+```
+
+```text
+PAL_Time_GetMs()
+        |
+        v
+Get the current time in milliseconds
+```
+
+You do **not** need to know how the timing is implemented underneath.
+
+The implementation may use a hardware timer, SysTick, an RTOS timer, or another mechanism in the future. Application code should continue using the same PAL interface.
+
+---
+
+# Mental Model
+
+Think of `PAL_Time` simply as:
+
+```text
+                 PAL_Time
+                    |
+        +-----------+-----------+
+        |           |           |
+        v           v           v
+      Start       Wait       Get Time
+       Time        Time       in ms
+        |           |           |
+        v           v           v
+ PAL_Time_Init  DelayMs()   GetMs()
+```
+
+> **PAL_Time gives application code a simple way to work with time without requiring knowledge of the underlying platform.**
