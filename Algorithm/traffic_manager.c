@@ -38,11 +38,11 @@ void traffic_state_update(traffic_t* i)
 {
     switch(i->traffic_state)
     {
-        STATE_HALT:
+        case STATE_HALT:
             printf("Aargh! Program is halted!");
             break;
 
-        STATE_DEFAULT:
+        case STATE_DEFAULT:
             if (i->traffic_emergency_vehicle != 0)
             {
                 // TODO: Implement emergency vehicle handling
@@ -59,7 +59,7 @@ void traffic_state_update(traffic_t* i)
                     (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
             }
 
-            if (i->traffic_car_body[max_cars_lane] != i->lane_select)
+            if (max_cars_lane != i->lane_select)
             {
                 i->yellowlight_countdown = 5;
 
@@ -72,7 +72,7 @@ void traffic_state_update(traffic_t* i)
 
             break;
 
-        STATE_YELLOWLIGHT_WAIT:
+        case STATE_YELLOWLIGHT_WAIT:
 
             if (i->yellowlight_countdown == 0)
             {
