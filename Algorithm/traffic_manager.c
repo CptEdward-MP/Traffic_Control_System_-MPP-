@@ -16,7 +16,7 @@ u8 traffic_get_greenlight_value(traffic_t* i, traffic_lane_select new_lane)
 }
 
 f_inline
-void traffic_greenlight_countdown(traffic_t* i)
+void traffic_DEFAULT_greenlight_countdown(traffic_t* i)
 {
     if (i->traffic_car_body[i->lane_select] == 0)
     {
@@ -30,6 +30,31 @@ void traffic_greenlight_countdown(traffic_t* i)
     i->traffic_car_body[i->lane_select]--;
 
     return;
+}
+
+
+f_inline
+void traffic_DEFAULT_check_if_lane_changed(traffic_t* i)
+{
+    traffic_lane_select max_cars_lane = i->lane_select;
+
+    if (i->greenlight_countdown == 0)
+    {
+        max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]   ?
+            (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)                 :
+            (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
+    }
+
+    if (max_cars_lane != i->lane_select)
+    {
+        i->yellowlight_countdown = 5;
+
+        i->greenlight_countdown = traffic_get_greenlight_value(i, max_cars_lane);
+
+        i->lane_select = max_cars_lane;
+
+        i->light_state[i->lane_select] = LIGHT_YELLOW;
+    }
 }
 
 
@@ -48,27 +73,12 @@ void traffic_state_update(traffic_t* i)
                 // TODO: Implement emergency vehicle handling
             }
 
-            traffic_greenlight_countdown(i);
+            /**
+             * COUNTDOWN FOR GREEN LIGHT
+             */
+            traffic_DEFAULT_greenlight_countdown(i);
 
-            traffic_lane_select max_cars_lane = i->lane_select;
-
-            if (i->greenlight_countdown == 0)
-            {
-                max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]   ?
-                    (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)                 :
-                    (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
-            }
-
-            if (max_cars_lane != i->lane_select)
-            {
-                i->yellowlight_countdown = 5;
-
-                i->greenlight_countdown = traffic_get_greenlight_value(i, max_cars_lane);
-
-                i->lane_select = max_cars_lane;
-
-                i->light_state[i->lane_select] = LIGHT_YELLOW;
-            }
+            traffic_DEFAULT_check_if_lane_changed(i);
 
             break;
 
@@ -77,7 +87,10 @@ void traffic_state_update(traffic_t* i)
             if (i->yellowlight_countdown == 0)
             {
                 i->traffic_state = STATE_DEFAULT;
+
+                for (u8 i = 0; i < 3; ++i) i->light_state[i] = LIGHT_RED;
                 i->light_state[i->lane_select] = LIGHT_GREEN;
+
             }
 
             i->yellowlight_countdown--;
