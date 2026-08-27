@@ -1,5 +1,8 @@
 #include "traffic_manager.h"
+
 #include <stdio.h>
+#include <unistd.h>
+
 
 
 f_inline
@@ -16,20 +19,15 @@ u8 traffic_get_greenlight_value(traffic_t* i, traffic_lane_select new_lane)
 }
 
 f_inline
-void traffic_DEFAULT_greenlight_countdown(traffic_t* i)
+bool traffic_DEFAULT_greenlight_countdown(traffic_t* i)
 {
-    if (i->traffic_car_body[i->lane_select] == 0)
-    {
-        i->greenlight_countdown = 0;
-        return;
-    }
 
-    if (i->greenlight_countdown == 0) return;
+    if (i->greenlight_countdown == 0) return true;
 
     i->greenlight_countdown--;
-    i->traffic_car_body[i->lane_select]--;
+    i->traffic_car_body[i->lane_select] = 0;
 
-    return;
+    return false;
 }
 
 
@@ -57,7 +55,6 @@ void traffic_DEFAULT_check_if_lane_changed(traffic_t* i)
     }
 }
 
-
 f_inline
 void traffic_state_update(traffic_t* i)
 {
@@ -76,9 +73,13 @@ void traffic_state_update(traffic_t* i)
             /**
              * COUNTDOWN FOR GREEN LIGHT
              */
-            traffic_DEFAULT_greenlight_countdown(i);
+            bool lane_changed = traffic_DEFAULT_greenlight_countdown(i);
 
-            traffic_DEFAULT_check_if_lane_changed(i);
+            /**
+             * Check if lane has changed
+             */
+            if (lane_changed == true)
+                traffic_DEFAULT_check_if_lane_changed(i);
 
             break;
 
@@ -88,7 +89,9 @@ void traffic_state_update(traffic_t* i)
             {
                 i->traffic_state = STATE_DEFAULT;
 
-                for (u8 i = 0; i < 3; ++i) i->light_state[i] = LIGHT_RED;
+                // Set all lane to red first
+                for (u8 count = 0; count < 3; ++count) i->light_state[count] = LIGHT_RED;
+                // Change the updated lane to green
                 i->light_state[i->lane_select] = LIGHT_GREEN;
 
             }
@@ -100,8 +103,51 @@ void traffic_state_update(traffic_t* i)
     return;
 }
 
+void traffic_init_state(traffic_t* i, u8 lane[])
+{
+    for (u8 count = 0; count < 3; ++count)
+        i->traffic_car_body[count] = lane[count];
+
+    i->traffic_state = STATE_DEFAULT;
+    i->lane_select = LANE0;
+    i->yellowlight_countdown = 0;
+    i->greenlight_countdown = 0;
+
+    traffic_state_update(i);
+}
+
+
+f_inline
+void traffic_print_state(traffic_t* i)
+{
+    for (u8 count = 0; count < 3; ++count)
+    {
+        printf("CAR COUNT: %d ", i->traffic_car_body[count]);
+    }
+    printf("\n");
+    printf("LANE: %d\n", i->lane_select);
+    printf("GREENLIGHT_TIME: %d\n", i->greenlight_countdown);
+    printf("YELLOWLIGHT_TIME: %d\n", i->yellowlight_countdown);
+    printf("PROGRAM STATE (DEFAULT: 1): %d\n", i->traffic_state);
+}
+
 int main(void)
 {
-  printf("Hello World!\n");
-  return 0;
+    traffic_t main_state;
+
+    u8 initialize_car_count[3] = {0, 5, 5};
+
+    traffic_init_state(&main_state, initialize_car_count);
+
+    while(1)
+    {
+        traffic_print_state(&main_state);
+
+        traffic_state_update(&main_state);
+
+        sleep(1);
+    }
+
+
+    return 0;
 }
