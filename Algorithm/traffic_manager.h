@@ -59,6 +59,7 @@ typedef enum traffic_lane_select
 typedef struct traffic_t
 {
     u8 traffic_car_body[3];
+    u8 red_light_countdown[3];
 
     traffic_light_states light_state[3];
 
@@ -68,16 +69,11 @@ typedef struct traffic_t
      */
     u8 traffic_emergency_vehicle;
 
-    /**
-     * STATE MACHINE for the program
-     */
     traffic_state traffic_state;
 
     traffic_lane_select lane_select;
 
     u8 yellowlight_countdown;
-
-    u8 red_light_count[3];
 
 }traffic_t;
 

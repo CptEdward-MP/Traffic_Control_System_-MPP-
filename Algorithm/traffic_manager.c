@@ -5,57 +5,54 @@
 
 
 
-f_inline
-u8 traffic_get_greenlight_value(traffic_t* i, traffic_lane_select new_lane)
+f_inline static
+void traffic_change_lane(traffic_t* i, traffic_lane_select which_lane_is_0)
 {
-    u8 green_light_temp =
-        i->traffic_car_body[new_lane] - i->traffic_car_body[i->lane_select];
+    u8 included_lanes[2] = "";
+    u8 array_counter = 0;
 
-    green_light_temp /= 4;
-
-    if (green_light_temp < 10) green_light_temp = 10;
-
-    return green_light_temp;
-}
-
-f_inline
-bool traffic_DEFAULT_greenlight_countdown(traffic_t* i)
-{
-
-    if (i->greenlight_countdown == 0) return true;
-
-    i->greenlight_countdown--;
-    i->traffic_car_body[i->lane_select] = 0;
-
-    return false;
-}
-
-
-f_inline
-void traffic_DEFAULT_check_if_lane_changed(traffic_t* i)
-{
-    traffic_lane_select max_cars_lane = i->lane_select;
-
-    if (i->greenlight_countdown == 0)
+    // which lanes has non-zero car bodies
+    for (u8 count = 0; count < 3; ++i)
     {
-        max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]   ?
-            (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)                 :
-            (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
+        if (count != which_lane_is_0)
+        {
+          included_lanes[array_counter] = count;
+          array_counter++;
+        }
     }
 
-    if (max_cars_lane != i->lane_select)
+    /**
+     *  garbage algorithm
+     */
+    /* u16 new_red_light_time = */
+    /*   (i->traffic_car_body[included_lanes[0]] + */
+    /*    i->traffic_car_body[included_lanes[1]]) / 4; */
+
+    i->red_light_countdown[which_lane_is_0] = new_red_light_time;
+}
+
+
+f_inline static
+void traffic_DEFAULT_countdown(traffic_t* i)
+{
+    for (u8 count = 0; count < 3; ++count)
     {
-        i->yellowlight_countdown = 5;
+        if (i->red_light_countdown[count] == 0)
+        {
+            traffic_lane_select which_lane_is_0 = count;
+            /**
+             * TODO: Write lane changing functions
+             */
+            traffic_change_lane(i, which_lane_is_0);
+            return;
+        }
 
-        i->greenlight_countdown = traffic_get_greenlight_value(i, max_cars_lane);
 
-        i->lane_select = max_cars_lane;
-
-        i->light_state[i->lane_select] = LIGHT_YELLOW;
+        i->red_light_countdown[count]--;
     }
 }
 
-f_inline
+
 void traffic_state_update(traffic_t* i)
 {
     switch(i->traffic_state)
@@ -70,16 +67,7 @@ void traffic_state_update(traffic_t* i)
                 // TODO: Implement emergency vehicle handling
             }
 
-            /**
-             * COUNTDOWN FOR GREEN LIGHT
-             */
-            bool lane_changed = traffic_DEFAULT_greenlight_countdown(i);
-
-            /**
-             * Check if lane has changed
-             */
-            if (lane_changed == true)
-                traffic_DEFAULT_check_if_lane_changed(i);
+            traffic_DEFAULT_countdown(i);
 
             break;
 
@@ -103,21 +91,23 @@ void traffic_state_update(traffic_t* i)
     return;
 }
 
+static
 void traffic_init_state(traffic_t* i, u8 lane[])
 {
     for (u8 count = 0; count < 3; ++count)
+    {
         i->traffic_car_body[count] = lane[count];
+        i->red_light_countdown[count] = 0;
+    }
 
     i->traffic_state = STATE_DEFAULT;
     i->lane_select = LANE0;
     i->yellowlight_countdown = 0;
-    i->greenlight_countdown = 0;
 
     traffic_state_update(i);
 }
 
 
-f_inline
 void traffic_print_state(traffic_t* i)
 {
     for (u8 count = 0; count < 3; ++count)
@@ -126,10 +116,10 @@ void traffic_print_state(traffic_t* i)
     }
     printf("\n");
     printf("LANE: %d\n", i->lane_select);
-    printf("GREENLIGHT_TIME: %d\n", i->greenlight_countdown);
     printf("YELLOWLIGHT_TIME: %d\n", i->yellowlight_countdown);
     printf("PROGRAM STATE (DEFAULT: 1): %d\n", i->traffic_state);
 }
+
 
 int main(void)
 {
