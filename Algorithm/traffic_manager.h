@@ -71,9 +71,15 @@ typedef struct traffic_t
 
     traffic_state traffic_state;
 
+    // which lane has green light
     traffic_lane_select lane_select;
 
     u8 yellowlight_countdown;
+    /**
+     * redlight_countdown[lane_select] does not depend on its countdown
+     * It defaults to zero, and relies on this to countdown
+     */
+    u8 greenlight_countdown;
 
 }traffic_t;
 

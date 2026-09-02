@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS =  -O2 -flto -Wall -Wextra -pedantic -Wshadow -Wuninitialized -Wno-unused-parameter
+CFLAGS =  -O0 -g -Wall -Wextra -pedantic -Wshadow -Wuninitialized -Wno-unused-parameter
 SOURCES = traffic_manager.c
 LIBS =  -lm
 OUTPUT = qame
