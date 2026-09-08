@@ -15,9 +15,11 @@
 #endif
 
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -83,6 +85,17 @@ typedef struct traffic_t
 
 }traffic_t;
 
+
+int pal_printf(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    int result = vprintf(format, args);
+
+    va_end(args);
+    return result;
+}
 
 
 
