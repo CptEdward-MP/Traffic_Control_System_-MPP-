@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include <stdio.h>
+
 /*==========================================================
  * USB Configuration
  *==========================================================*/
@@ -116,5 +118,8 @@ uint8_t USB_IsConnected(void);
 void USB_RxCallback(uint8_t *data, uint32_t length);
 
 void USB_TxCompleteCallback(void);
+
+
+USB_Status USB_SendInt(int32_t value);
 
 #endif /* USB_H */

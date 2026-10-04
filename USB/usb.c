@@ -217,3 +217,14 @@ void USB_TxCompleteCallback(void)
      * release a semaphore, etc.
      */
 }
+
+
+
+USB_Status USB_SendInt(int32_t value)
+{
+    char buffer[12];
+
+    snprintf(buffer, sizeof(buffer), "%ld", (long)value);
+
+    return USB_SendString(buffer);
+}
