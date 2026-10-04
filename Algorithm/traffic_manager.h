@@ -7,17 +7,19 @@
 
 
 #if defined(_MSC_VER)
-  #define f_inline __forceinline
+    #define f_inline __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-  #define f_inline inline __attribute__((always_inline))
+    #define f_inline inline __attribute__((always_inline))
 #else
-  #define f_inline inline
+    #define f_inline inline
 #endif
 
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -40,8 +42,6 @@ typedef enum traffic_light_states
 
 typedef enum traffic_state
 {
-
-    STATE_HALT,
     STATE_DEFAULT,
     STATE_YELLOWLIGHT_WAIT,
     STATE_EMERGENCY
@@ -59,12 +59,13 @@ typedef enum traffic_lane_select
 typedef struct traffic_t
 {
     u8 traffic_car_body[3];
-    u8 red_light_countdown[3];
 
     traffic_light_states light_state[3];
 
     /**
      * Stores 3 booleans. 0bXXXXXBBB.
+     * Each bit represents in what lane contains emergency vehicle
+     * 0bXXXXX[lane0][lane1][lane2]
      * Stores in big endian
      */
     u8 traffic_emergency_vehicle;
@@ -80,9 +81,21 @@ typedef struct traffic_t
      * It defaults to zero, and relies on this to countdown
      */
     u8 greenlight_countdown;
+    u8 greenlight_countdown_snapshot;
 
 }traffic_t;
 
+
+int pal_printf(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    int result = vprintf(format, args);
+
+    va_end(args);
+    return result;
+}
 
 
 
