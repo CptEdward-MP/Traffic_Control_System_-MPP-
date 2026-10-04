@@ -61,12 +61,13 @@ typedef enum traffic_lane_select
 typedef struct traffic_t
 {
     u8 traffic_car_body[3];
-    u8 red_light_countdown[3];
 
     traffic_light_states light_state[3];
 
     /**
      * Stores 3 booleans. 0bXXXXXBBB.
+     * Each bit represents in what lane contains emergency vehicle
+     * 0bXXXXX[lane0][lane1][lane2]
      * Stores in big endian
      */
     u8 traffic_emergency_vehicle;
@@ -82,6 +83,7 @@ typedef struct traffic_t
      * It defaults to zero, and relies on this to countdown
      */
     u8 greenlight_countdown;
+    u8 greenlight_countdown_snapshot;
 
 }traffic_t;
 
