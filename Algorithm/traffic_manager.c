@@ -3,66 +3,86 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define FALLBACK_RED_LIGHT_TIMING 10
+#define MIN_GREEN_LIGHT_TIMING 10
+#define MAX_GREEN_LIGHT_TIMING 30
+#define YELLOWLIGHT_COUNTDOWN 4
 
+// This runs at the start, it picks the lane and initializes traffic light counts
+/* f_inline static */
+/* void traffic_setup_redlight(traffic_t* i) */
+/* { */
+/*     traffic_lane_select max_cars_lane = LANE0; */
+
+/*     max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]           ? */
+/*         (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)     : */
+/*         (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2); */
+
+/*     i->lane_select = max_cars_lane; */
+/* } */
 
 
 f_inline static
-void traffic_setup_redlight(traffic_t* i)
+void traffic_setup_next_greenlight(traffic_t* i)
 {
-    traffic_lane_select max_cars_lane = LANE0;
+    i->greenlight_countdown_snapshot = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
+    i->traffic_car_body[i->lane_select] = 0;
 
-    max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]           ?
-        (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)     :
-        (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
+    if (i->greenlight_countdown_snapshot > MAX_GREEN_LIGHT_TIMING)
+        i->greenlight_countdown_snapshot = MAX_GREEN_LIGHT_TIMING;
 
-
-    // let cars with max lanes go first
-    i->red_light_countdown[max_cars_lane] = 0;
-
-    i->red_light_countdown[(max_cars_lane + 1) % 3] = FALLBACK_RED_LIGHT_TIMING;
-
-    i->red_light_countdown[(max_cars_lane + 2) % 3] = FALLBACK_RED_LIGHT_TIMING * 2;
-
-    i->greenlight_countdown = FALLBACK_RED_LIGHT_TIMING;
-
-    i->lane_select = max_cars_lane;
+    return;
 }
 
-
 f_inline static
-void traffic_update_redlight(traffic_t* i)
+void traffic_yellowlight_state(traffic_t* i)
 {
+    i->yellowlight_countdown--;
 
-    traffic_lane_select current_lane = i->lane_select;
+    if (i->yellowlight_countdown == 0)
+    {
+      traffic_lane_select current_lane = i->lane_select;
 
-    i->red_light_countdown[current_lane] = FALLBACK_RED_LIGHT_TIMING * 2;
+      i->lane_select = (current_lane + 1) % 3;
 
-    i->greenlight_countdown = FALLBACK_RED_LIGHT_TIMING;
+      i->light_state[i->lane_select] = LIGHT_GREEN;
+      i->light_state[(i->lane_select + 1) % 3] = LIGHT_RED;
+      i->light_state[(i->lane_select + 2) % 3] = LIGHT_RED;
 
-    i->lane_select = (current_lane + 1) % 3;
+      i->traffic_state = STATE_DEFAULT;
+    }
+    return;
 }
 
-
 f_inline static
-void traffic_redlight_countdown(traffic_t* i)
+void traffic_change_lane(traffic_t* i)
 {
     for (u8 count = 0; count < 3; count++)
     {
-        if (count == i->lane_select) continue;
-
-
-        if (i->red_light_countdown[count] == 0)
-        {
-            traffic_update_redlight(i);
-            return;
-        }
-
-        i->red_light_countdown[count]--;
-        i->traffic_car_body[i->lane_select] = 0;
+      i->light_state[count] = LIGHT_YELLOW;
     }
 
+    i->traffic_state = STATE_YELLOWLIGHT_WAIT;
+    i->yellowlight_countdown = YELLOWLIGHT_COUNTDOWN;
+
+    return;
+}
+
+
+f_inline static
+void traffic_countdown(traffic_t* i)
+{
     i->greenlight_countdown--;
+
+    if (i->greenlight_countdown == 5) {
+      traffic_setup_next_greenlight(i);
+    }
+
+    if (i->greenlight_countdown == 0) {
+      traffic_change_lane(i);
+
+      i->greenlight_countdown = i->greenlight_countdown_snapshot;
+      i->greenlight_countdown_snapshot = 0;
+    }
 
     return;
 }
@@ -74,32 +94,31 @@ void traffic_state_update(traffic_t* i)
 {
     switch(i->traffic_state)
     {
-        case STATE_HALT:
-            printf("Aargh! Program is halted!");
-            break;
-
         case STATE_DEFAULT:
-
             if (i->traffic_emergency_vehicle != 0)
             {
-                // TODO: Implement emergency vehicle handling
+              i->traffic_state = STATE_EMERGENCY;
+              // traffic_emergency_lane_select(i);
             }
 
-            traffic_redlight_countdown(i);
+            traffic_countdown(i);
 
             break;
 
 
         case STATE_YELLOWLIGHT_WAIT:
-
+            traffic_yellowlight_state(i);
             break;
+
+
+        case STATE_EMERGENCY:
+          break;
     }
 
     return;
 }
 
 
-static
 void traffic_init_state(traffic_t* i, u8 lane[])
 {
     for (u8 count = 0; count < 3; count++)
@@ -108,9 +127,17 @@ void traffic_init_state(traffic_t* i, u8 lane[])
     }
 
     i->traffic_state = STATE_DEFAULT;
+    i->lane_select = 0;
 
+    i->light_state[i->lane_select] = LIGHT_GREEN;
+    i->light_state[(i->lane_select + 1) % 3] = LIGHT_RED;
+    i->light_state[(i->lane_select + 2) % 3] = LIGHT_RED;
 
-    traffic_setup_redlight(i);
+    i->greenlight_countdown = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
+    i->traffic_car_body[i->lane_select] = 0;
+
+    if (i->greenlight_countdown > MAX_GREEN_LIGHT_TIMING)
+      i->greenlight_countdown = MAX_GREEN_LIGHT_TIMING;
 }
 
 
@@ -118,48 +145,37 @@ void traffic_print_state(traffic_t* i)
 {
     for (u8 count = 0; count < 3; count++)
     {
-        printf("CAR COUNT: %d ", i->traffic_car_body[count]);
+        pal_printf("CAR COUNT: %d ", i->traffic_car_body[count]);
     }
-    printf("\n");
+    pal_printf("\n");
 
-    for (u8 count = 0; count < 3; count++)
-    {
-        if (count == i->lane_select)
-        {
-            printf("GREEN COUNT: %d ", i->greenlight_countdown);
-            continue;
-        }
+    pal_printf("GREEN COUNT: %d ", i->greenlight_countdown);
+    pal_printf("\n");
 
-        printf("RED COUNT: %d ", i->red_light_countdown[count]);
-    }
+    pal_printf("YELLOW COUNT: %d ", i->yellowlight_countdown);
+    pal_printf("\n");
 
-    printf("\n");
-
-    printf("LANE SELECT: %d\n", i->lane_select);
-
-    printf("\n");
+    pal_printf("LANE SELECT: %d\n", i->lane_select);
+    pal_printf("\n");
 
     return;
 }
 
 
-/* int main(void) */
-/* { */
-/*     traffic_t main_state; */
 
-/*     u8 initialize_car_count[3] = {20, 20, 20}; */
+int main(void)
+{
+    traffic_t main_state;
 
-/*     traffic_init_state(&main_state, initialize_car_count); */
+    u8 initialize_car_count[3] = {17, 20, 25};
+    traffic_init_state(&main_state, initialize_car_count);
 
-/*     while(1) */
-/*     { */
-/*         traffic_print_state(&main_state); */
+    while(1)
+    {
+        traffic_print_state(&main_state);
+        traffic_state_update(&main_state);
+        sleep(1);
+    }
 
-/*         traffic_state_update(&main_state); */
-
-/*         sleep(1); */
-/*     } */
-
-
-/*     return 0; */
-/* } */
+    return 0;
+}
