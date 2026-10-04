@@ -20,7 +20,8 @@ typedef enum
 typedef enum
 {
     PAL_GPIO_MODE_INPUT  = 0U,
-    PAL_GPIO_MODE_OUTPUT = 1U
+    PAL_GPIO_MODE_OUTPUT = 1U,
+    PAL_GPIO_MODE_ANALOG = 3U
 } PAL_GPIO_Mode_t;
 
 typedef enum
@@ -47,12 +48,15 @@ typedef struct
 /*
  * Initialize one GPIO pin.
  *
- * For this V0 implementation:
- * - GPIO input/output modes are supported.
- * - Push-pull output is used.
- * - Pull-up/pull-down can be selected.
- * - Output speed can be selected.
- * - Alternate-function mode is intentionally not handled here.
+ * Supported modes:
+ * - Input
+ * - Output
+ * - Analog
+ *
+ * Push-pull output is used.
+ * Pull-up/pull-down can be selected.
+ * Output speed can be selected.
+ * Alternate-function mode is intentionally not handled here.
  */
 void PAL_GPIO_Init(PAL_GPIO_Pin_t *gpio,
                    PAL_GPIO_Mode_t mode,

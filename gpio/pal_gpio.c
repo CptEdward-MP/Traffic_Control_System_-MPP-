@@ -38,7 +38,6 @@ static void PAL_GPIO_EnableClock(GPIO_TypeDef *port)
         RCC->AHB1ENR |= (1U << 7);
     }
 }
-
 void PAL_GPIO_Init(PAL_GPIO_Pin_t *gpio,
                    PAL_GPIO_Mode_t mode,
                    PAL_GPIO_Pull_t pull,
@@ -53,19 +52,37 @@ void PAL_GPIO_Init(PAL_GPIO_Pin_t *gpio,
 
     if (mode == PAL_GPIO_MODE_OUTPUT)
     {
+        /* 01 = General purpose output */
         gpio->port->MODER |= (1U << shift);
 
         /* Push-pull output. */
         gpio->port->OTYPER &= ~(1U << gpio->pin);
     }
+    else if (mode == PAL_GPIO_MODE_ANALOG)
+    {
+        /* 11 = Analog mode */
+        gpio->port->MODER |= (3U << shift);
+
+        /*
+         * Analog mode:
+         * No pull-up / pull-down by default.
+         */
+        gpio->port->PUPDR &= ~(3U << shift);
+    }
+
+    /*
+     * Configure pull-up/pull-down for
+     * non-analog modes.
+     */
+    if (mode != PAL_GPIO_MODE_ANALOG)
+    {
+        gpio->port->PUPDR &= ~(3U << shift);
+        gpio->port->PUPDR |= ((uint32_t)pull << shift);
+    }
 
     /* OSPEEDR: 2 bits per pin. */
     gpio->port->OSPEEDR &= ~(3U << shift);
     gpio->port->OSPEEDR |= ((uint32_t)speed << shift);
-
-    /* PUPDR: 2 bits per pin. */
-    gpio->port->PUPDR &= ~(3U << shift);
-    gpio->port->PUPDR |= ((uint32_t)pull << shift);
 }
 
 void PAL_GPIO_Set(PAL_GPIO_Pin_t *gpio)
