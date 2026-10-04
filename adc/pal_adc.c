@@ -50,44 +50,86 @@ void PAL_ADC1_Init(void)
      * ADON  = 1 → enable ADC
      */
 
+    ADC1->CR1 |= (1U << 8);   /* SCAN = 1 */
+
     ADC1->CR2 |= (1U << 10);  /* EOCS */
     ADC1->CR2 |= (1U << 0);   /* ADON */
 
 
 
-    /* One conversion */
+    /* Three conversions */
     ADC1->SQR1 &= ~(0xFU << 20);
+    ADC1->SQR1 |= (2U << 20);   /* L = 2 -> 3 conversions */
 
-    /* First conversion = Channel 0 */
+    /* SQ1 = Channel 0 */
     ADC1->SQR3 &= ~(0x1FU << 0);
+    ADC1->SQR3 |= (0U << 0);
 
-    /* Channel 0 sampling time = 84 cycles */
+    /* SQ2 = Channel 1 */
+    ADC1->SQR3 &= ~(0x1FU << 5);
+    ADC1->SQR3 |= (1U << 5);
+
+    /* SQ3 = Channel 2 */
+    ADC1->SQR3 &= ~(0x1FU << 10);
+    ADC1->SQR3 |= (2U << 10);
+
+    /* CH0 */
     ADC1->SMPR2 &= ~(7U << 0);
-    ADC1->SMPR2 |=  (4U << 0);
+    ADC1->SMPR2 |= (4U << 0);
+
+    /* CH1 */
+    ADC1->SMPR2 &= ~(7U << 3);
+    ADC1->SMPR2 |= (4U << 3);
+
+    /* CH2 */
+    ADC1->SMPR2 &= ~(7U << 6);
+    ADC1->SMPR2 |= (4U << 6);
 }
 
 
-bool PAL_ADC1_ReadChannel(uint8_t channel, uint16_t *value)
+bool PAL_ADC1_ReadSequence(uint16_t *values)
 {
-    if (value == NULL)
+    if (values == NULL)
     {
         return false;
     }
 
-    /* Select channel as SQ1 */
-    ADC1->SQR3 &= ~(0x1FU << 0);
-    ADC1->SQR3 |= ((uint32_t)channel << 0);
+    /*
+     * Start the 3-channel conversion sequence.
+     *
+     * CH0 → CH1 → CH2 → STOP
+     */
+    ADC1->CR2 |= (1U << 30);   /* SWSTART */
 
-    /* Start regular conversion */
-    ADC1->CR2 |= (1U << 30);
-
-    /* Wait for conversion to complete */
+    /*
+     * Wait for CH0 conversion to complete.
+     */
     while ((ADC1->SR & (1U << 1)) == 0U)
     {
     }
 
-    /* Read converted value */
-    *value = (uint16_t)ADC1->DR;
+    values[0] = (uint16_t)ADC1->DR;
+
+
+    /*
+     * Wait for CH1 conversion to complete.
+     */
+    while ((ADC1->SR & (1U << 1)) == 0U)
+    {
+    }
+
+    values[1] = (uint16_t)ADC1->DR;
+
+
+    /*
+     * Wait for CH2 conversion to complete.
+     */
+    while ((ADC1->SR & (1U << 1)) == 0U)
+    {
+    }
+
+    values[2] = (uint16_t)ADC1->DR;
+
 
     return true;
 }
