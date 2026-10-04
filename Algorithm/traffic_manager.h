@@ -7,11 +7,11 @@
 
 
 #if defined(_MSC_VER)
-  #define f_inline __forceinline
+    #define f_inline __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-  #define f_inline inline __attribute__((always_inline))
+    #define f_inline inline __attribute__((always_inline))
 #else
-  #define f_inline inline
+    #define f_inline inline
 #endif
 
 
