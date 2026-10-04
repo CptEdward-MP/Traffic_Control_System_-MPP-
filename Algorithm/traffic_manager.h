@@ -42,8 +42,6 @@ typedef enum traffic_light_states
 
 typedef enum traffic_state
 {
-
-    STATE_HALT,
     STATE_DEFAULT,
     STATE_YELLOWLIGHT_WAIT,
     STATE_EMERGENCY

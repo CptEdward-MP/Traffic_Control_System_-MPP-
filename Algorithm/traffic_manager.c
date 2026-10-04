@@ -5,7 +5,7 @@
 
 #define MIN_GREEN_LIGHT_TIMING 10
 #define MAX_GREEN_LIGHT_TIMING 30
-
+#define YELLOWLIGHT_COUNTDOWN 4
 
 // This runs at the start, it picks the lane and initializes traffic light counts
 /* f_inline static */
@@ -62,7 +62,7 @@ void traffic_change_lane(traffic_t* i)
     }
 
     i->traffic_state = STATE_YELLOWLIGHT_WAIT;
-    i->yellowlight_countdown = 4;
+    i->yellowlight_countdown = YELLOWLIGHT_COUNTDOWN;
 
     return;
 }
@@ -94,10 +94,6 @@ void traffic_state_update(traffic_t* i)
 {
     switch(i->traffic_state)
     {
-        case STATE_HALT:
-            pal_printf("Aargh! Program is halted!");
-            break;
-
         case STATE_DEFAULT:
             if (i->traffic_emergency_vehicle != 0)
             {
