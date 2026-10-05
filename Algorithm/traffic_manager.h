@@ -74,6 +74,7 @@ typedef struct traffic_t
 
     // which lane has green light
     traffic_lane_select lane_select;
+    bool lane2_gate;
 
     u8 yellowlight_countdown;
     /**
@@ -86,17 +87,7 @@ typedef struct traffic_t
 }traffic_t;
 
 
-int pal_printf(const char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-
-    int result = vprintf(format, args);
-
-    va_end(args);
-    return result;
-}
-
+int pal_printf(const char *format, ...);
 
 
 #endif
