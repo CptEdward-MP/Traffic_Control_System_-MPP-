@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS =  -O0 -g -Wall -Wextra -pedantic -Wshadow -Wuninitialized -Wno-unused-parameter
-SOURCES = traffic_manager.c
+SOURCES = traffic_manager.c log.c
 LIBS =  -lm
 OUTPUT = qame
 
