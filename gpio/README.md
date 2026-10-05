@@ -1,138 +1,130 @@
-1. What is GPIO?
+# **PAL_GPIO — Simple Documentation**
 
-GPIO stands for General Purpose Input/Output.
+## **1. What is GPIO?**
 
-It allows the STM32 to use pins as:
+GPIO means **General Purpose Input/Output**.
 
-Input → read a button/sensor
-Output → control an LED, motor, etc.
+It allows the STM32 to use its pins as:
 
-In our project, we use GPIO to control the STM32 pins without using STM32 HAL.
+- **Output** → send HIGH or LOW
+- **Input** → read HIGH or LOW
 
-2. Basic GPIO Process
+---
 
-For a GPIO pin, we follow these steps:
+## **2. Basic GPIO Process**
 
-Select GPIO Port + Pin
-        ↓
-Enable GPIO Clock
-        ↓
-Configure Pin Mode
-        ↓
-Configure Pull/Speed
-        ↓
-Read or Control the Pin
+The basic process is:
 
-3. Important GPIO Registers
-Register	Purpose
-MODER	Selects pin mode
-OTYPER	Push-pull / open-drain
-OSPEEDR	Output speed
-PUPDR	Pull-up / pull-down
-IDR	Reads pin
-ODR	Stores output state
-BSRR	Sets or resets output
+**Enable Clock → Configure Pin → Control Pin → Read Pin if needed**
 
-MODER uses two bits for each pin:
+---
+
+## **3. Enable GPIO Clock**
+
+Before using GPIOC, we need to **turn its clock ON**.
+
+This is done using the **RCC register**.
+
+For GPIOC, **bit 2** is used to enable the clock.
+
+```c
+RCC->AHB1ENR |= (1u << 2);
+```
+
+> **RCC → turns the GPIO clock ON.**
+
+---
+
+## **4. Configure PC13**
+
+We use the **MODER register** to decide what the pin does.
+
+For **PC13**, bits **27 and 26** control the mode.
+
+```text
 00 → Input
 01 → Output
 10 → Alternate Function
 11 → Analog
+```
 
-4. Enabling the GPIO Clock
+For our project, we select:
 
-Before using GPIOC, its clock must be enabled.
+```text
+01 → Output
+```
 
-RCC->AHB1ENR |= (1U << 2);
+> **MODER → decides the mode of the pin.**
 
-Here, bit 2 = GPIOC clock enable.
+---
 
-Simply:
+## **5. Control the Pin**
 
-Turn ON the GPIOC peripheral before using it.
-5. Configuring the Pin
+We use the **BSRR (Bit Set/Reset Register)** to control the GPIO pin.
 
-For PC13 as an output:
+```text
+Bits 0–15   → SET
+Bits 16–31  → RESET
+```
 
-GPIOC->MODER &= ~(3U << 26);
-GPIOC->MODER |=  (1U << 26);
+For PC13:
 
-This sets:
-
-PC13 → General Purpose Output
-
-We also configure:
-OTYPER  → Push-pull
-OSPEEDR → Low speed
-PUPDR   → No pull
-
-6. Controlling the Pin
-Set HIGH
-GPIOC->BSRR = (1U << 13);
-PC13 → HIGH
-Set LOW
-GPIOC->BSRR = (1U << 29);
-PC13 → LOW
-BSRR is divided into two parts:
-
-Lower 16 bits → SET
-Upper 16 bits → RESET
+```text
+Bit 13 → Set PC13 HIGH
+Bit 29 → Reset PC13 LOW
+```
 
 So:
 
-Bit 13 → Set PC13
-Bit 29 → Reset PC13
+```c
+GPIOC->BSRR = (1u << 13);
+```
 
-Basically:
+→ **PC13 HIGH**
 
-ODR = output state
-BSRR = command to change the output state.
-7. Our PAL Layer
+```c
+GPIOC->BSRR = (1u << 29);
+```
 
-Instead of writing register code throughout the application, we created simple functions:
+→ **PC13 LOW**
 
-PAL_GPIO_Init();
-PAL_GPIO_Set();
-PAL_GPIO_Reset();
-PAL_GPIO_Write();
-PAL_GPIO_Toggle();
-PAL_GPIO_Read();
+> **BSRR → sets or resets the GPIO pin.**
 
-So the application can simply say:
-PAL_GPIO_Set(&LED);
+---
 
-instead of directly manipulating BSRR.
+## **6. PAL_GPIO Functions**
 
-The structure is:
+We created simple functions so the application does not need to directly work with registers.
 
-Application
-     ↓
-   PAL GPIO
-     ↓
-   CMSIS
-     ↓
- STM32 Registers
-     ↓
-  Hardware
+| Function | Meaning |
+|---|---|
+| `PAL_GPIO_Init()` | Configure the pin |
+| `PAL_GPIO_Set()` | Make pin HIGH |
+| `PAL_GPIO_Reset()` | Make pin LOW |
+| `PAL_GPIO_Write()` | Write HIGH/LOW |
+| `PAL_GPIO_Toggle()` | Change HIGH ↔ LOW |
+| `PAL_GPIO_Read()` | Read the pin |
 
-This keeps the application code simple and reusable.
-8. What We Achieved
+---
 
-We configured an STM32F411 GPIO pin at the register level, without HAL, and used it to control an LED.
+## **7. Simple Flow**
 
-The main idea is:
+```text
+        RCC
+         ↓
+  Enable GPIO Clock
+         ↓
+       MODER
+         ↓
+  Configure PC13
+         ↓
+       BSRR
+         ↓
+   HIGH / LOW
+         ↓
+        LED
+```
 
-GPIOC
-  ↓
-Enable Clock
-  ↓
-Configure MODER
-  ↓
-Configure GPIO settings
-  ↓
-Use BSRR
-  ↓
-Control LED
+### **In one sentence:**
 
-“We implemented a bare-metal GPIO abstraction layer for the STM32F411 using CMSIS register definitions, allowing GPIO pins to be initialized, read, set, reset and toggled without using STM32 HAL.”
-
+> **We implemented GPIO without using HAL by enabling the GPIO clock through RCC, configuring PC13 using MODER, and controlling it using BSRR through simple PAL_GPIO functions.**
