@@ -3,12 +3,16 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define MIN_GREEN_LIGHT_TIMING 10
 #define MAX_GREEN_LIGHT_TIMING 30
 #define YELLOWLIGHT_COUNTDOWN 4
 
 #define TOTAL_NO_GATES 3
+
+static const u8 zeroes[3] = {0, 0, 0};
 
 // This runs at the start, it picks the lane and initializes traffic light counts
 /* f_inline static */
@@ -24,11 +28,42 @@
 /* } */
 
 
-f_inline static
-void traffic_setup_next_greenlight(traffic_t* i, traffic_lane_select* lane_select)
+void traffic_init_state(traffic_t* i)
 {
-    i->greenlight_countdown_snapshot = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
-    i->traffic_car_body[*lane_select] = 0;
+    i->traffic_state = STATE_DEFAULT;
+
+    traffic_lane_select max_cars_lane = LANE0;
+    max_cars_lane = i->traffic_car_body[0] > i->traffic_car_body[1]           ?
+        (i->traffic_car_body[0] > i->traffic_car_body[2] ? LANE0 : LANE2)     :
+        (i->traffic_car_body[1] > i->traffic_car_body[2] ? LANE1 : LANE2);
+
+    i->lane_select = max_cars_lane;
+    i->lane2_gate = false;
+
+    i->traffic_emergency_vehicle = false;
+
+    i->light_state[i->lane_select] = LIGHT_GREEN;
+    i->light_state[(i->lane_select + 1) % TOTAL_NO_GATES] = LIGHT_RED;
+    i->light_state[(i->lane_select + 2) % TOTAL_NO_GATES] = LIGHT_RED;
+
+    i->greenlight_countdown = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
+    i->traffic_car_body[i->lane_select] = 0;
+
+    if (i->greenlight_countdown > MAX_GREEN_LIGHT_TIMING)
+        i->greenlight_countdown = MAX_GREEN_LIGHT_TIMING;
+
+    i->yellowlight_countdown = 0;
+
+
+    return;
+}
+
+
+
+f_inline static
+void traffic_setup_next_greenlight(traffic_t* i, traffic_lane_select lane_select)
+{
+    i->greenlight_countdown_snapshot = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[lane_select] / 2);
 
     if (i->greenlight_countdown_snapshot > MAX_GREEN_LIGHT_TIMING)
         i->greenlight_countdown_snapshot = MAX_GREEN_LIGHT_TIMING;
@@ -43,6 +78,8 @@ void traffic_yellowlight_state(traffic_t* i)
 
     if (i->yellowlight_countdown == 0)
     {
+        i->traffic_car_body[i->lane_select] = 0;
+
         traffic_lane_select current_lane = i->lane_select;
 
         // clear lane2 gate
@@ -81,10 +118,15 @@ void traffic_countdown(traffic_t* i)
     i->greenlight_countdown--;
 
     if (i->greenlight_countdown == 5) {
-        traffic_setup_next_greenlight(i, &(i->lane_select));
+        traffic_lane_select next_lane = (i->lane_select + 1) % TOTAL_NO_GATES;
+        traffic_setup_next_greenlight(i, next_lane);
     }
 
     if (i->greenlight_countdown == 0) {
+
+        /**
+         * SETS YELLOW LIGHT
+         */
         traffic_change_lane(i, &(i->lane_select));
 
         i->greenlight_countdown = i->greenlight_countdown_snapshot;
@@ -99,53 +141,19 @@ void traffic_countdown(traffic_t* i)
 f_inline static
 void traffic_emergency_lane_select(traffic_t* i)
 {
-    u8 lane0 = i->traffic_emergency_vehicle & 0x4;
-    u8 lane1 = i->traffic_emergency_vehicle & 0x2;
-    u8 lane2 = i->traffic_emergency_vehicle & 0x1;
+    i->traffic_state = false;
 
-    /**
-     * temporarily set the state back to default.
-     * Only if it enters the if it enters the if statement
-     */
-    i->traffic_state = STATE_DEFAULT;
+    i->traffic_state = STATE_EMERGENCY;
 
-    if ((lane0 != 0) || (lane1 != 0) || (lane2 != 0))
+    // set lane2's gate to false
+    i->lane2_gate = false;
+
+    for (u8 count = 0; count < 3; count++)
     {
-
-        i->traffic_state = STATE_EMERGENCY;
-
-        /**
-         * If more than one lane has emergency enabled, pick in this order :-
-         * lane0 > lane1 > lane2
-         */
-        traffic_lane_select pick_the_greatest_lane = lane0 > lane1  ?
-            (lane0 > lane2 ? LANE0 : LANE2)                         :
-            (lane1 > lane2 ? LANE1 : LANE2);
-
-        // disable the emergency bit
-        i->traffic_emergency_vehicle &= ~(1 << (2 - pick_the_greatest_lane));
-
-        // set lane2's gate to false
-        i->lane2_gate = false;
-        // change lane
-        i->lane_select = pick_the_greatest_lane;
-        // if the emergency lane is gate2, set it up
-        if (i->lane_select == LANE2) i->lane2_gate = true;
-
-        i->light_state[i->lane_select] = LIGHT_GREEN;
-        i->light_state[(i->lane_select + 1) % TOTAL_NO_GATES] = LIGHT_RED;
-        i->light_state[(i->lane_select + 2) % TOTAL_NO_GATES] = LIGHT_RED;
-
-        i->greenlight_countdown = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
-
-        i->traffic_car_body[i->lane_select] = 0;
-
-        if (i->greenlight_countdown_snapshot > MAX_GREEN_LIGHT_TIMING)
-            i->greenlight_countdown_snapshot = MAX_GREEN_LIGHT_TIMING;
-
-        return;
-
+        i->light_state[count] = LIGHT_RED;
     }
+
+    i->greenlight_countdown_snapshot = MIN_GREEN_LIGHT_TIMING;
 
     return;
 }
@@ -157,8 +165,10 @@ void traffic_emergency_countdown(traffic_t* i)
 
     if (i->greenlight_countdown == 0)
     {
-        traffic_emergency_lane_select(i);
+        traffic_init_state(i);
     }
+
+    return;
 }
 
 
@@ -168,12 +178,20 @@ void traffic_state_update(traffic_t* i)
     switch(i->traffic_state)
     {
         case STATE_DEFAULT:
-            if (i->traffic_emergency_vehicle != 0)
+            if (i->traffic_emergency_vehicle == true)
             {
-              i->traffic_state = STATE_EMERGENCY;
-              traffic_emergency_lane_select(i);
+                traffic_emergency_lane_select(i);
+                break;
             }
+
             traffic_countdown(i);
+
+            if (memcmp(i->traffic_car_body, zeroes, sizeof(zeroes)) == 0)
+            {
+                i->traffic_state = STATE_HALT;
+                break;
+            }
+
             break;
 
 
@@ -185,52 +203,71 @@ void traffic_state_update(traffic_t* i)
         case STATE_EMERGENCY:
             traffic_emergency_countdown(i);
             break;
+
+
+        case STATE_HALT:
+            pal_printf("Aargh! Out of cars\n");
+
+            if (memcmp(i->traffic_car_body, zeroes, sizeof(zeroes)) != 0)
+            {
+                i->traffic_state = STATE_DEFAULT;
+                traffic_init_state(i);
+                break;
+            }
+
+            break;
     }
 
     return;
 }
 
 
-void traffic_init_state(traffic_t* i, u8 lane[])
+void traffic_ENTRY_init_state(traffic_t* i, u8 lane[])
 {
     for (u8 count = 0; count < TOTAL_NO_GATES; count++)
     {
         i->traffic_car_body[count] = lane[count];
     }
 
-    i->traffic_state = STATE_DEFAULT;
-    i->lane_select = 0;
-    i->lane2_gate = false;
+    traffic_init_state(i);
 
-    i->light_state[i->lane_select] = LIGHT_GREEN;
-    i->light_state[(i->lane_select + 1) % TOTAL_NO_GATES] = LIGHT_RED;
-    i->light_state[(i->lane_select + 2) % TOTAL_NO_GATES] = LIGHT_RED;
-
-    i->greenlight_countdown = MIN_GREEN_LIGHT_TIMING + (i->traffic_car_body[i->lane_select] / 2);
-    i->traffic_car_body[i->lane_select] = 0;
-
-    if (i->greenlight_countdown > MAX_GREEN_LIGHT_TIMING)
-      i->greenlight_countdown = MAX_GREEN_LIGHT_TIMING;
+    return;
 }
-
-
 
 
 int main(void)
 {
     traffic_t main_state;
 
-    u8 initialize_car_count[3] = {17, 20, 25};
+    u8 initialize_car_count[3] = {3, 3, 3};
 
     // setup emergency
     main_state.traffic_emergency_vehicle = 0x6;
 
-    traffic_init_state(&main_state, initialize_car_count);
+    traffic_ENTRY_init_state(&main_state, initialize_car_count);
 
-    while(1)
+    input_init();
+
+    while (1)
     {
-        traffic_print_state(&main_state);
+        int key = input_get_key();
+
+        if (key == 'a' || key == 'A')
+            main_state.traffic_car_body[0] += 1;
+
+        if (key == 's' || key == 'S')
+            main_state.traffic_car_body[1] += 1;
+
+        if (key == 'd' || key == 'D')
+            main_state.traffic_car_body[2] += 1;
+
+        if (key == 'w' || key == 'W')
+            main_state.traffic_emergency_vehicle = true;
+
         traffic_state_update(&main_state);
+        traffic_print_state(&main_state);
+
+        /* usleep(100000); */
         sleep(1);
     }
 
