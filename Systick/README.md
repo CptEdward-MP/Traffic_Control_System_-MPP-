@@ -1,467 +1,74 @@
-# PAL_Time — User Guide
+PAL_Time — Simple Documentation
+1. What is PAL_Time?
 
-## Purpose
+PAL_Time provides simple time functions to the application.
 
-`PAL_Time` provides simple time-related functions for application code.
+It allows us to wait, get the current time, and check elapsed time without knowing how the timing works internally.
 
-The main goal of this module is to allow application developers to work with time **without needing to understand the underlying hardware or operating system implementation**.
-
-You only need to know the `PAL_Time` API.
-
-```c
-#include "pal_time.h"
-```
-
-The main functions are:
-
-```c
-void PAL_Time_Init(void);
-
-void PAL_Time_DelayMs(uint32_t ms);
-
-uint32_t PAL_Time_GetMs(void);
-```
-
----
-
-# 1. Initialization
-
-Initialize `PAL_Time` once during application startup:
-
-```c
+2. Initialize
 PAL_Time_Init();
-```
 
-Example:
+Called once when the program starts.
 
-```c
-#include "pal_time.h"
+Starts the timing system.
 
-int main(void)
-{
-    PAL_Time_Init();
-
-    while (1)
-    {
-        /* Application code */
-    }
-}
-```
-
-You normally only need to call `PAL_Time_Init()` **once**.
-
----
-
-# 2. Delay
-
-If you need the application to wait for a specific amount of time, use:
-
-```c
+3. Delay
 PAL_Time_DelayMs(500);
-```
 
-The value is specified in milliseconds.
+Waits for approximately 500 milliseconds.
 
-For example:
+For example, for an LED:
 
-```c
-PAL_Time_DelayMs(100);
-```
-
-means:
-
-```text
-Wait approximately 100 milliseconds
-```
-
-### Example
-
-```c
 PAL_GPIO_Set(&LED1);
-
 PAL_Time_DelayMs(500);
-
 PAL_GPIO_Reset(&LED1);
 
-PAL_Time_DelayMs(500);
-```
+DelayMs = wait for some time.
 
-This produces approximately:
-
-```text
-LED ON
-  |
-  | 500 ms
-  |
-LED OFF
-  |
-  | 500 ms
-  |
-LED ON
-  |
-  ...
-```
-
----
-
-# 3. Getting the Current Time
-
-Use:
-
-```c
+4. Get Current Time
 uint32_t now = PAL_Time_GetMs();
-```
 
-This gives the current system time in milliseconds.
+Gives the current time in milliseconds.
 
-For example:
+GetMs = find out what the current time is.
 
-```c
-uint32_t now = PAL_Time_GetMs();
-```
+5. Check Elapsed Time
 
-The value can be used to determine how much time has passed.
+Save the starting time:
 
----
-
-# 4. Measuring Elapsed Time
-
-A common use of `PAL_Time_GetMs()` is measuring how long something takes.
-
-```c
 uint32_t start = PAL_Time_GetMs();
 
-/* Do some work */
-
-uint32_t elapsed = PAL_Time_GetMs() - start;
-```
-
-For example:
-
-```c
-uint32_t start = PAL_Time_GetMs();
-
-/* Perform operation */
+Later:
 
 uint32_t elapsed = PAL_Time_GetMs() - start;
 
-if (elapsed >= 100U)
-{
-    /* At least 100 ms have passed */
-}
-```
+elapsed tells us how much time has passed.
 
-This is useful for timeouts and periodic operations.
+This can be used for periodic tasks:
 
----
-
-# 5. Periodic Operations
-
-If you want something to happen periodically, you can use `PAL_Time_GetMs()` instead of waiting.
-
-Example:
-
-```c
-uint32_t last_time = PAL_Time_GetMs();
-
-while (1)
-{
-    uint32_t now = PAL_Time_GetMs();
-
-    if ((now - last_time) >= 100U)
-    {
-        last_time = now;
-
-        /* Do something every 100 ms */
-    }
-
-    /* Other application code */
-}
-```
-
-This allows the application to continue doing other work between periodic operations.
-
----
-
-# 6. Example: Periodic Sensor Reading
-
-Suppose a sensor needs to be read every 50 ms:
-
-```c
-uint32_t last_sensor_update = PAL_Time_GetMs();
-
-while (1)
-{
-    uint32_t now = PAL_Time_GetMs();
-
-    if ((now - last_sensor_update) >= 50U)
-    {
-        last_sensor_update = now;
-
-        Read_Sensor();
-    }
-
-    /* Other application work */
-}
-```
-
-The sensor update therefore occurs approximately every:
-
-```text
-50 ms
-```
-
----
-
-# 7. Example: Multiple Periodic Operations
-
-Different parts of the application can maintain their own timestamps.
-
-```c
-uint32_t last_sensor = PAL_Time_GetMs();
-uint32_t last_led    = PAL_Time_GetMs();
-uint32_t last_uart   = PAL_Time_GetMs();
-
-while (1)
-{
-    uint32_t now = PAL_Time_GetMs();
-
-    if ((now - last_sensor) >= 10U)
-    {
-        last_sensor = now;
-
-        /* Sensor update */
-    }
-
-    if ((now - last_led) >= 500U)
-    {
-        last_led = now;
-
-        /* LED update */
-    }
-
-    if ((now - last_uart) >= 1000U)
-    {
-        last_uart = now;
-
-        /* UART update */
-    }
-}
-```
-
-Here:
-
-```text
-Sensor -> every 10 ms
-LED    -> every 500 ms
-UART   -> every 1000 ms
-```
-
-All three operations use the same `PAL_Time` module.
-
----
-
-# 8. Which Function Should I Use?
-
-## I need to wait
-
-Use:
-
-```c
-PAL_Time_DelayMs(100);
-```
-
----
-
-## I need the current time
-
-Use:
-
-```c
-uint32_t now = PAL_Time_GetMs();
-```
-
----
-
-## I need to measure how long something took
-
-Use:
-
-```c
-uint32_t start = PAL_Time_GetMs();
-
-/* Work */
-
-uint32_t elapsed = PAL_Time_GetMs() - start;
-```
-
----
-
-## I need something to happen periodically
-
-Use:
-
-```c
-uint32_t last_time = PAL_Time_GetMs();
-
-while (1)
-{
-    uint32_t now = PAL_Time_GetMs();
-
-    if ((now - last_time) >= period)
-    {
-        last_time = now;
-
-        /* Do work */
-    }
-}
-```
-
----
-
-# 9. Blocking vs Periodic Timing
-
-`PAL_Time_DelayMs()` is useful when you simply need to wait:
-
-```c
-PAL_Time_DelayMs(500);
-```
-
-However, if your application needs to perform multiple activities, timestamp-based timing is usually more appropriate:
-
-```c
-if ((PAL_Time_GetMs() - last_time) >= period)
+if ((PAL_Time_GetMs() - last_time) >= 100U)
 {
     last_time = PAL_Time_GetMs();
 
-    /* Do work */
+    /* Do something */
 }
-```
 
-For example, instead of:
+This makes the task run approximately every 100 ms.
 
-```c
-PAL_Time_DelayMs(100);
-
-Read_Sensor();
-
-PAL_Time_DelayMs(100);
-
-Update_LED();
-```
-
-you can structure the application around periodic checks so different activities can run independently.
-
----
-
-# 10. Quick Reference
-
-### Include
-
-```c
-#include "pal_time.h"
-```
-
-### Initialize
-
-```c
-PAL_Time_Init();
-```
-
-Call once during startup.
-
-### Delay
-
-```c
-PAL_Time_DelayMs(1000);
-```
-
-Wait approximately 1000 ms.
-
-### Get time
-
-```c
-uint32_t now = PAL_Time_GetMs();
-```
-
-Get the current time in milliseconds.
-
-### Measure elapsed time
-
-```c
-uint32_t start = PAL_Time_GetMs();
-
-/* Work */
-
-uint32_t elapsed = PAL_Time_GetMs() - start;
-```
-
-### Run something periodically
-
-```c
-uint32_t last_time = PAL_Time_GetMs();
-
-while (1)
-{
-    uint32_t now = PAL_Time_GetMs();
-
-    if ((now - last_time) >= period)
-    {
-        last_time = now;
-
-        /* Do work */
-    }
-}
-```
-
----
-
-# 11. What You Need to Know
-
-To use `PAL_Time`, you only need to understand three concepts:
-
-```text
+6. Main Functions
+Function	Meaning
+PAL_Time_Init()	Start timing
+PAL_Time_DelayMs()	Wait
+PAL_Time_GetMs()	Get current time
+Simple flow
 PAL_Time_Init()
-        |
-        v
-Start the timing service
-```
+       ↓
+Start timing
+       ↓
+GetMs() → Know the time
+       ↓
+DelayMs() → Wait
+       ↓
+Use elapsed time for periodic tasks
 
-```text
-PAL_Time_DelayMs(ms)
-        |
-        v
-Wait for the requested time
-```
-
-```text
-PAL_Time_GetMs()
-        |
-        v
-Get the current time in milliseconds
-```
-
-You do **not** need to know how the timing is implemented underneath.
-
-The implementation may use a hardware timer, SysTick, an RTOS timer, or another mechanism in the future. Application code should continue using the same PAL interface.
-
----
-
-# Mental Model
-
-Think of `PAL_Time` simply as:
-
-```text
-                 PAL_Time
-                    |
-        +-----------+-----------+
-        |           |           |
-        v           v           v
-      Start       Wait       Get Time
-       Time        Time       in ms
-        |           |           |
-        v           v           v
- PAL_Time_Init  DelayMs()   GetMs()
-```
-
-> **PAL_Time gives application code a simple way to work with time without requiring knowledge of the underlying platform.**
+PAL_Time gives the application a simple way to work with time without dealing with the underlying timing implementation.
