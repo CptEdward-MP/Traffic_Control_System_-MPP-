@@ -44,7 +44,8 @@ typedef enum traffic_state
 {
     STATE_DEFAULT,
     STATE_YELLOWLIGHT_WAIT,
-    STATE_EMERGENCY
+    STATE_EMERGENCY,
+    STATE_HALT
 
 }traffic_state;
 
@@ -62,13 +63,7 @@ typedef struct traffic_t
 
     traffic_light_states light_state[3];
 
-    /**
-     * Stores 3 booleans. 0bXXXXXBBB.
-     * Each bit represents in what lane contains emergency vehicle
-     * 0bXXXXX[lane0][lane1][lane2]
-     * Stores in big endian
-     */
-    u8 traffic_emergency_vehicle;
+    bool traffic_emergency_vehicle;
 
     traffic_state traffic_state;
 

@@ -1,9 +1,10 @@
 #include "traffic_manager.h"
 
+
+#include <stdio.h>
+#include <termios.h>
 #include <fcntl.h>
-/* #include <stdio.h> */
-/* #include <termios.h> */
-/* #include <unistd.h> */
+#include <unistd.h>
 
 /* #define USB_DEV "/dev/ttyACM0" */
 
@@ -44,6 +45,42 @@
 /* } */
 
 
+
+static struct termios old_terminal;
+static int old_flags;
+
+void input_init(void)
+{
+    struct termios new_terminal;
+
+    tcgetattr(STDIN_FILENO, &old_terminal);
+    new_terminal = old_terminal;
+
+    new_terminal.c_lflag &= ~(ICANON | ECHO);
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_terminal);
+
+    old_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, old_flags | O_NONBLOCK);
+}
+
+void input_cleanup(void)
+{
+    tcsetattr(STDIN_FILENO, TCSANOW, &old_terminal);
+    fcntl(STDIN_FILENO, F_SETFL, old_flags);
+}
+
+int input_get_key(void)
+{
+    char c;
+
+    if (read(STDIN_FILENO, &c, 1) == 1)
+        return c;
+
+    return -1;
+}
+
+
 int pal_printf(const char *format, ...)
 {
     va_list args;
@@ -59,10 +96,10 @@ int pal_printf(const char *format, ...)
 
 void traffic_print_state(traffic_t *i)
 {
-    pal_printf("\033[2J\033[H");
+    /* pal_printf("\033[H\033[2K"); */
 
     pal_printf(
-        "CAR COUNT: %d %d %d | GREEN: %d | YELLOW: %d | LANE: %d | STATE: %d\r",
+        "CAR COUNT: %d %d %d | GREEN: %d | YELLOW: %d | LANE: %d | STATE: %d\n",
         i->traffic_car_body[0],
         i->traffic_car_body[1],
         i->traffic_car_body[2],
@@ -72,5 +109,5 @@ void traffic_print_state(traffic_t *i)
         i->traffic_state
     );
 
-    fflush(stdout);
+    /* fflush(stdout); */
 }
