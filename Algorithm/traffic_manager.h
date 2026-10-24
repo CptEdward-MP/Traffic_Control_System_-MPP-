@@ -46,7 +46,8 @@ typedef enum traffic_state
     STATE_YELLOWLIGHT_WAIT,
     STATE_EMERGENCY,
     STATE_HALT,
-    STATE_PED_REQUEST
+    STATE_PED_REQUEST,
+    STATE_LANE_JUMPERS_WAIT
 
 }traffic_state;
 
@@ -65,6 +66,8 @@ typedef struct traffic_t
     traffic_light_states light_state[3];
 
     bool traffic_emergency_vehicle;
+
+    bool lane_jumpers;
 
     traffic_state traffic_state;
 

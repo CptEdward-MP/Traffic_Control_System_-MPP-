@@ -12,6 +12,8 @@
 #define MAX_RED_WAIT_TIME 60
 #define TOTAL_NO_GATES 3
 #define PEDESTRIAN_TIMING 20
+#define TEMPORARY_HALT 20
+
 
 static const u8 zeroes[3] = {0, 0, 0};
 
@@ -60,6 +62,8 @@ void traffic_init_state(traffic_t* i)
     }
 
     i->pedestrian_request = false;
+
+    i->lane_jumpers = false;
 
     return;
 }
@@ -205,6 +209,18 @@ void traffic_countdown(traffic_t* i)
         i->greenlight_countdown_snapshot = 0;
     }
 
+    if (i->lane_jumpers == true)
+    {
+        i->greenlight_countdown = TEMPORARY_HALT;
+        i->traffic_state = STATE_LANE_JUMPERS_WAIT;
+
+        for (u8 count = 0; count < 3; count++)
+        {
+            i->light_state[count] = LIGHT_RED;
+        }
+    }
+
+
     return;
 }
 
@@ -299,6 +315,20 @@ void traffic_state_update(traffic_t* i)
               i->traffic_state = STATE_DEFAULT;
               traffic_init_state(i);
           }
+          break;
+
+
+        case STATE_LANE_JUMPERS_WAIT:
+          i->lane_jumpers = false;
+
+          i->greenlight_countdown--;
+
+          if (i->greenlight_countdown == 0)
+          {
+              i->traffic_state = STATE_DEFAULT;
+              traffic_init_state(i);
+          }
+          break;
 
     }
 
