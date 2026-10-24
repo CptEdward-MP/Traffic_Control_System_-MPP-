@@ -45,7 +45,8 @@ typedef enum traffic_state
     STATE_DEFAULT,
     STATE_YELLOWLIGHT_WAIT,
     STATE_EMERGENCY,
-    STATE_HALT
+    STATE_HALT,
+    STATE_PED_REQUEST
 
 }traffic_state;
 
@@ -69,7 +70,11 @@ typedef struct traffic_t
 
     // which lane has green light
     traffic_lane_select lane_select;
+    traffic_lane_select next_lane_select;
+
     bool lane2_gate;
+
+    bool pedestrian_request;
 
     u8 yellowlight_countdown;
     /**
@@ -78,6 +83,10 @@ typedef struct traffic_t
      */
     u8 greenlight_countdown;
     u8 greenlight_countdown_snapshot;
+    /**
+     * How much time the lanes have waited.
+     */
+    u8 lanes_redlight_waited[3];
 
 }traffic_t;
 

@@ -9,8 +9,9 @@
 #define MIN_GREEN_LIGHT_TIMING 10
 #define MAX_GREEN_LIGHT_TIMING 30
 #define YELLOWLIGHT_COUNTDOWN 4
-
+#define MAX_RED_WAIT_TIME 60
 #define TOTAL_NO_GATES 3
+#define PEDESTRIAN_TIMING 20
 
 static const u8 zeroes[3] = {0, 0, 0};
 
@@ -54,6 +55,11 @@ void traffic_init_state(traffic_t* i)
 
     i->yellowlight_countdown = 0;
 
+    for (u8 lanes = 0; lanes < 3; lanes++) {
+        i->lanes_redlight_waited[lanes] = 0;
+    }
+
+    i->pedestrian_request = false;
 
     return;
 }
@@ -71,6 +77,54 @@ void traffic_setup_next_greenlight(traffic_t* i, traffic_lane_select lane_select
     return;
 }
 
+static traffic_lane_select traffic_select_next_lane(traffic_t *i)
+{
+    traffic_lane_select best_lane = LANE0;
+    bool fairness_override = false;
+
+    for (u8 lane = 0; lane < TOTAL_NO_GATES; lane++)
+    {
+        if (lane == i->lane_select)
+            continue;
+
+        if (i->lanes_redlight_waited[lane] >= MAX_RED_WAIT_TIME)
+        {
+            if (!fairness_override ||
+                i->lanes_redlight_waited[lane] >
+                i->lanes_redlight_waited[best_lane])
+            {
+                best_lane = (traffic_lane_select)lane;
+                fairness_override = true;
+            }
+        }
+    }
+
+    if (fairness_override)
+        return best_lane;
+
+    bool first_candidate = true;
+
+    for (u8 lane = 0; lane < TOTAL_NO_GATES; lane++)
+    {
+        if (lane == i->lane_select)
+            continue;
+
+        if (first_candidate ||
+            i->traffic_car_body[lane] >
+            i->traffic_car_body[best_lane] ||
+            (i->traffic_car_body[lane] ==
+             i->traffic_car_body[best_lane] &&
+             i->lanes_redlight_waited[lane] >
+             i->lanes_redlight_waited[best_lane]))
+        {
+            best_lane = (traffic_lane_select)lane;
+            first_candidate = false;
+        }
+    }
+
+    return best_lane;
+}
+
 f_inline static
 void traffic_yellowlight_state(traffic_t* i)
 {
@@ -80,35 +134,49 @@ void traffic_yellowlight_state(traffic_t* i)
     {
         i->traffic_car_body[i->lane_select] = 0;
 
-        traffic_lane_select current_lane = i->lane_select;
+        i->lane_select = i->next_lane_select;
+        i->lanes_redlight_waited[i->lane_select] = 0;
 
-        // clear lane2 gate
-        i->lane2_gate = false;
-
-        i->lane_select = (current_lane + 1) % TOTAL_NO_GATES;
-
-        if (i->lane_select == LANE2) i->lane2_gate = true;
+        //lane2 gate.
+        i->lane2_gate = (i->lane_select == LANE2);
 
         i->light_state[i->lane_select] = LIGHT_GREEN;
-        i->light_state[(i->lane_select + 1) % TOTAL_NO_GATES] = LIGHT_RED;
-        i->light_state[(i->lane_select + 2) % TOTAL_NO_GATES] = LIGHT_RED;
+
+        for (u8 lane = 0; lane < TOTAL_NO_GATES; lane++)
+        {
+            if (lane != i->lane_select)
+                i->light_state[lane] = LIGHT_RED;
+        }
 
         i->traffic_state = STATE_DEFAULT;
     }
+
     return;
 }
 
 f_inline static
-void traffic_change_lane(traffic_t* i, traffic_lane_select* lane_select)
+void traffic_change_lane(traffic_t* i)
 {
-    i->light_state[*lane_select] = LIGHT_YELLOW;
-    i->light_state[(*lane_select + 1) % TOTAL_NO_GATES] = LIGHT_YELLOW;
+    i->light_state[i->lane_select] = LIGHT_YELLOW;
+    i->light_state[i->next_lane_select] = LIGHT_YELLOW;
+
+    i->light_state[3 - i->lane_select - i->next_lane_select] = LIGHT_RED;
 
     i->traffic_state = STATE_YELLOWLIGHT_WAIT;
 
-    i->yellowlight_countdown = YELLOWLIGHT_COUNTDOWN;
+    if (i->pedestrian_request == true)
+    {
+        // used as pedestrian countdown
+        i->greenlight_countdown = 20;
 
-    return;
+        for (u8 count = 0; count < 3; count++)
+            i->light_state[count] = LIGHT_RED;
+
+        i->traffic_state = STATE_PED_REQUEST;
+    }
+
+
+    i->yellowlight_countdown = YELLOWLIGHT_COUNTDOWN;
 }
 
 
@@ -117,9 +185,13 @@ void traffic_countdown(traffic_t* i)
 {
     i->greenlight_countdown--;
 
-    if (i->greenlight_countdown == 5) {
-        traffic_lane_select next_lane = (i->lane_select + 1) % TOTAL_NO_GATES;
-        traffic_setup_next_greenlight(i, next_lane);
+    i->lanes_redlight_waited[(i->lane_select + 1) % 3]++;
+    i->lanes_redlight_waited[(i->lane_select + 2) % 3]++;
+
+    if (i->greenlight_countdown == 5)
+    {
+        i->next_lane_select = traffic_select_next_lane(i);
+        traffic_setup_next_greenlight(i, i->next_lane_select);
     }
 
     if (i->greenlight_countdown == 0) {
@@ -127,7 +199,7 @@ void traffic_countdown(traffic_t* i)
         /**
          * SETS YELLOW LIGHT
          */
-        traffic_change_lane(i, &(i->lane_select));
+        traffic_change_lane(i);
 
         i->greenlight_countdown = i->greenlight_countdown_snapshot;
         i->greenlight_countdown_snapshot = 0;
@@ -216,6 +288,18 @@ void traffic_state_update(traffic_t* i)
             }
 
             break;
+
+        case STATE_PED_REQUEST:
+          i->pedestrian_request = false;
+
+          i->greenlight_countdown--;
+
+          if (i->greenlight_countdown == 0)
+          {
+              i->traffic_state = STATE_DEFAULT;
+              traffic_init_state(i);
+          }
+
     }
 
     return;
@@ -239,10 +323,7 @@ int main(void)
 {
     traffic_t main_state;
 
-    u8 initialize_car_count[3] = {3, 3, 3};
-
-    // setup emergency
-    main_state.traffic_emergency_vehicle = 0x6;
+    u8 initialize_car_count[3] = {34, 23, 12};
 
     traffic_ENTRY_init_state(&main_state, initialize_car_count);
 
