@@ -73,7 +73,10 @@ typedef struct traffic_t
 
     bool lane2_gate;
 
+
     bool pedestrian_request;
+
+    u8 pedestrian_count;
 
     u8 yellowlight_countdown;
     /**

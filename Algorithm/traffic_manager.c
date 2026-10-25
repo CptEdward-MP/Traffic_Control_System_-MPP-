@@ -69,6 +69,8 @@ void traffic_init_state(traffic_t* i)
 
     i->lane_jumpers = false;
 
+    i->pedestrian_count = 0;
+
     return;
 }
 
@@ -167,7 +169,7 @@ void traffic_change_lane(traffic_t* i)
     if (i->pedestrian_request == true)
     {
         // used as pedestrian countdown
-        i->greenlight_countdown = 20;
+        i->greenlight_countdown = i->pedestrian_count / 4;
 
         for (u8 count = 0; count < 3; count++)
             i->light_state[count] = LIGHT_RED;
