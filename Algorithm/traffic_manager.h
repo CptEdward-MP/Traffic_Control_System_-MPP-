@@ -6,30 +6,9 @@
 #define TRAFFIC_MAXIMUM_GREEN 64
 
 
-#if defined(_MSC_VER)
-    #define f_inline __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-    #define f_inline inline __attribute__((always_inline))
-#else
-    #define f_inline inline
-#endif
-
-
+#include "typedefs.h"
 #include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
 #include <stdarg.h>
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
 
 
 typedef enum traffic_light_states
@@ -59,8 +38,25 @@ typedef enum traffic_lane_select
 
 }traffic_lane_select;
 
+
+/* typedef struct car_jumpers_t */
+/* { */
+/*     traffic_lane_select jumped_lane; */
+/*     traffic_lane_select reached_lane; */
+/* }car_jumpers_t; */
+
+
+typedef struct lane_jumper_t
+{
+  u8 car_count;
+  /* car_jumpers_t jumped_cars[16]; */
+}lane_jumper_t;
+
+
 typedef struct traffic_t
 {
+    lane_jumper_t lane_jumpers_s;
+
     u8 traffic_car_body[3];
 
     traffic_light_states light_state[3];
@@ -72,8 +68,8 @@ typedef struct traffic_t
     traffic_state traffic_state;
 
     // which lane has green light
-    traffic_lane_select lane_select;
-    traffic_lane_select next_lane_select;
+    u8 lane_select;
+    u8 next_lane_select;
 
     bool lane2_gate;
 

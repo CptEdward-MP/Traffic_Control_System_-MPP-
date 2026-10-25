@@ -1,10 +1,12 @@
-#include "log.h"
 #include "traffic_manager.h"
+#include "log.h"
+
 
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define MIN_GREEN_LIGHT_TIMING 10
 #define MAX_GREEN_LIGHT_TIMING 30
@@ -16,6 +18,8 @@
 
 
 static const u8 zeroes[3] = {0, 0, 0};
+
+
 
 // This runs at the start, it picks the lane and initializes traffic light counts
 /* f_inline static */
@@ -81,53 +85,45 @@ void traffic_setup_next_greenlight(traffic_t* i, traffic_lane_select lane_select
     return;
 }
 
-static traffic_lane_select traffic_select_next_lane(traffic_t *i)
+
+static f_inline
+bool better_lane(traffic_t *i, u8 a, traffic_lane_select b)
 {
-    traffic_lane_select best_lane = LANE0;
-    bool fairness_override = false;
+    bool a_starved = i->lanes_redlight_waited[a] >= MAX_RED_WAIT_TIME;
+    bool b_starved = i->lanes_redlight_waited[b] >= MAX_RED_WAIT_TIME;
+
+    if (a_starved != b_starved)
+        return a_starved;
+
+    if (i->traffic_car_body[a] != i->traffic_car_body[b])
+        return i->traffic_car_body[a] > i->traffic_car_body[b];
+
+    return i->lanes_redlight_waited[a] > i->lanes_redlight_waited[b];
+}
+
+
+static f_inline
+traffic_lane_select traffic_select_next_lane(traffic_t *i)
+{
+    traffic_lane_select best_lane = (traffic_lane_select)i->lane_select;
+    bool found = false;
 
     for (u8 lane = 0; lane < TOTAL_NO_GATES; lane++)
     {
-        if (lane == i->lane_select)
+        if (lane == i->lane_select || i->traffic_car_body[lane] == 0)
             continue;
 
-        if (i->lanes_redlight_waited[lane] >= MAX_RED_WAIT_TIME)
-        {
-            if (!fairness_override ||
-                i->lanes_redlight_waited[lane] >
-                i->lanes_redlight_waited[best_lane])
-            {
-                best_lane = (traffic_lane_select)lane;
-                fairness_override = true;
-            }
-        }
-    }
-
-    if (fairness_override)
-        return best_lane;
-
-    bool first_candidate = true;
-
-    for (u8 lane = 0; lane < TOTAL_NO_GATES; lane++)
-    {
-        if (lane == i->lane_select)
-            continue;
-
-        if (first_candidate ||
-            i->traffic_car_body[lane] >
-            i->traffic_car_body[best_lane] ||
-            (i->traffic_car_body[lane] ==
-             i->traffic_car_body[best_lane] &&
-             i->lanes_redlight_waited[lane] >
-             i->lanes_redlight_waited[best_lane]))
+        if (!found ||
+            better_lane(i, lane, best_lane))
         {
             best_lane = (traffic_lane_select)lane;
-            first_candidate = false;
+            found = true;
         }
     }
 
     return best_lane;
 }
+
 
 f_inline static
 void traffic_yellowlight_state(traffic_t* i)
@@ -198,6 +194,21 @@ void traffic_countdown(traffic_t* i)
         traffic_setup_next_greenlight(i, i->next_lane_select);
     }
 
+    u8 lane_jump_sensor = car_jumper_sensor();
+
+    if (lane_jump_sensor < 3)
+    {
+        i->greenlight_countdown = TEMPORARY_HALT;
+
+        for (u8 count = 0; count < 3; count++)
+        {
+            i->light_state[count] = LIGHT_RED;
+        }
+
+        i->lane_jumpers = true;
+    }
+
+
     if (i->greenlight_countdown == 0) {
 
         /**
@@ -209,18 +220,6 @@ void traffic_countdown(traffic_t* i)
         i->greenlight_countdown_snapshot = 0;
     }
 
-    if (i->lane_jumpers == true)
-    {
-        i->greenlight_countdown = TEMPORARY_HALT;
-        i->traffic_state = STATE_LANE_JUMPERS_WAIT;
-
-        for (u8 count = 0; count < 3; count++)
-        {
-            i->light_state[count] = LIGHT_RED;
-        }
-    }
-
-
     return;
 }
 
@@ -229,8 +228,6 @@ void traffic_countdown(traffic_t* i)
 f_inline static
 void traffic_emergency_lane_select(traffic_t* i)
 {
-    i->traffic_state = false;
-
     i->traffic_state = STATE_EMERGENCY;
 
     // set lane2's gate to false
@@ -245,6 +242,7 @@ void traffic_emergency_lane_select(traffic_t* i)
 
     return;
 }
+
 
 f_inline static
 void traffic_emergency_countdown(traffic_t* i)
@@ -272,12 +270,20 @@ void traffic_state_update(traffic_t* i)
                 break;
             }
 
+
             traffic_countdown(i);
+
 
             if (memcmp(i->traffic_car_body, zeroes, sizeof(zeroes)) == 0)
             {
                 i->traffic_state = STATE_HALT;
-                break;
+            }
+
+
+            if (i->lane_jumpers == true)
+            {
+                i->lane_jumpers_s.car_count++;
+                i->traffic_state = STATE_LANE_JUMPERS_WAIT;
             }
 
             break;
@@ -320,6 +326,7 @@ void traffic_state_update(traffic_t* i)
 
         case STATE_LANE_JUMPERS_WAIT:
           i->lane_jumpers = false;
+          i->lane_jumpers_s.car_count--;
 
           i->greenlight_countdown--;
 
@@ -359,6 +366,8 @@ int main(void)
 
     input_init();
 
+    time_t last_update = time(NULL);
+
     while (1)
     {
         int key = input_get_key();
@@ -375,11 +384,19 @@ int main(void)
         if (key == 'w' || key == 'W')
             main_state.traffic_emergency_vehicle = true;
 
-        traffic_state_update(&main_state);
-        traffic_print_state(&main_state);
+        time_t now = time(NULL);
+
+        if (now != last_update)
+        {
+            traffic_state_update(&main_state);
+            traffic_print_state(&main_state);
+
+            last_update = now;
+
+        }
+
 
         /* usleep(100000); */
-        sleep(1);
     }
 
     return 0;
