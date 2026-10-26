@@ -111,3 +111,92 @@ void traffic_print_state(traffic_t *i)
 
     /* fflush(stdout); */
 }
+
+static f_inline
+u8 lane0_sensor(void)
+{
+  /**
+   * If i->lane_select == sensor_data
+   * return 0 */
+   /* else */
+     return 3;
+}
+
+static f_inline
+u8 lane1_sensor(void)
+{
+  /**
+   * If i->lane_select == sensor_data
+   * return 1 */
+   /* else */
+     return 3;
+}
+
+
+static f_inline
+u8 lane2_sensor(void)
+{
+  /**
+   * If i->lane_select == sensor_data
+   * return 2 */
+   /* else */
+     return 3;
+
+}
+
+
+
+u8 car_jumper_sensor(traffic_t* i)
+{
+
+    // 4 means undefined
+    u8 traffic_lane0_sensor = 4;
+    u8 traffic_lane1_sensor = 4;
+    u8 traffic_lane2_sensor = 4;
+
+    traffic_lane0_sensor = lane0_sensor();
+    traffic_lane1_sensor = lane1_sensor();
+    traffic_lane2_sensor = lane2_sensor();
+
+    if (traffic_lane0_sensor < 3)
+      return 0;
+
+    if (traffic_lane1_sensor < 3)
+      return 1;
+
+    if (traffic_lane2_sensor < 3)
+      return 2;
+
+    return 3;
+
+    /* for (u8 count = 0; count < 3; count++) */
+    /* { */
+    /*     if (i->lane_select == 0 && traffic_lane0_sensor == 4) continue; */
+    /*     if (i->lane_select == 1 && traffic_lane1_sensor == 4) continue; */
+    /*     if (i->lane_select == 2 && traffic_lane2_sensor == 4) continue; */
+
+    /*     if (traffic_lane0_sensor == 4) */
+    /*     { */
+    /*         /\* i->lane_jumpers_s.jumped_cars[ *\/ */
+    /*         /\*     i->lane_jumpers_s.car_count].reached_lane = LANE0; *\/ */
+
+    /*         return 0; */
+    /*     } */
+
+    /*     if (traffic_lane1_sensor == 4) */
+    /*     { */
+    /*         /\* i->lane_jumpers_s.jumped_cars[ *\/ */
+    /*         /\*     i->lane_jumpers_s.car_count].reached_lane = LANE1; *\/ */
+
+    /*         return 1; */
+    /*     } */
+
+    /*     if (traffic_lane2_sensor == 4) */
+    /*     { */
+    /*         /\* i->lane_jumpers_s.jumped_cars[ *\/ */
+    /*         /\*     i->lane_jumpers_s.car_count].reached_lane = LANE2; *\/ */
+
+    /*         return 2; */
+    /*     } */
+    /* } */
+}

@@ -1,4 +1,4 @@
-CC = gcc
+CC = clang
 CFLAGS =  -O0 -g -Wall -Wextra -pedantic -Wshadow -Wuninitialized -Wno-unused-parameter
 SOURCES = traffic_manager.c log.c
 LIBS =  -lm
