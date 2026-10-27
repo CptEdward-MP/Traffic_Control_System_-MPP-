@@ -119,7 +119,7 @@ u8 lane0_sensor(void)
    * If i->lane_select == sensor_data
    * return 0 */
    /* else */
-     return 3;
+     return 4;
 }
 
 static f_inline
@@ -129,7 +129,7 @@ u8 lane1_sensor(void)
    * If i->lane_select == sensor_data
    * return 1 */
    /* else */
-     return 3;
+     return 4;
 }
 
 
@@ -140,34 +140,53 @@ u8 lane2_sensor(void)
    * If i->lane_select == sensor_data
    * return 2 */
    /* else */
-     return 3;
+     return 4;
 
 }
+
+static f_inline
+u8 lane3_sensor(void)
+{
+  /**
+   * If i->lane_select == sensor_data
+   * return 2 */
+   /* else */
+     return 4;
+
+}
+
 
 
 
 u8 car_jumper_sensor(traffic_t* i)
 {
 
-    // 4 means undefined
-    u8 traffic_lane0_sensor = 4;
-    u8 traffic_lane1_sensor = 4;
-    u8 traffic_lane2_sensor = 4;
+    // 5 means undefined
+    u8 traffic_lane0_sensor = 5;
+    u8 traffic_lane1_sensor = 5;
+    u8 traffic_lane2_sensor = 5;
+    u8 traffic_lane3_sensor = 5;
 
     traffic_lane0_sensor = lane0_sensor();
     traffic_lane1_sensor = lane1_sensor();
     traffic_lane2_sensor = lane2_sensor();
+    traffic_lane3_sensor = lane3_sensor();
 
-    if (traffic_lane0_sensor < 3)
+    if (traffic_lane0_sensor < 4)
       return 0;
 
-    if (traffic_lane1_sensor < 3)
+    if (traffic_lane1_sensor < 4)
       return 1;
 
-    if (traffic_lane2_sensor < 3)
+    if (traffic_lane2_sensor < 4)
       return 2;
 
-    return 3;
+    if (traffic_lane3_sensor < 4)
+      return 3;
+
+
+
+    return 4;
 
     /* for (u8 count = 0; count < 3; count++) */
     /* { */

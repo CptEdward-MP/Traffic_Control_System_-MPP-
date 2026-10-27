@@ -1,7 +1,6 @@
 #include "traffic_manager.h"
 #include "log.h"
 
-
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -78,14 +77,12 @@ void traffic_init_state(traffic_t* i)
 
     for (u8 lanes = 0; lanes < TOTAL_NO_GATES; lanes++) {
         i->lanes_redlight_waited[lanes] = 0;
+        i->pedestrian_count[lanes] = 0;
     }
 
     i->pedestrian_request = false;
 
     i->lane_jumpers = false;
-
-    for (u8 count = 0; count < TOTAL_NO_GATES; count++)
-        i->pedestrian_count[count] = 0;
 
     return;
 }
