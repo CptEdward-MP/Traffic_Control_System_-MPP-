@@ -5,6 +5,7 @@
 #define TRAFFIC_MINIMUM_GREEN 8
 #define TRAFFIC_MAXIMUM_GREEN 64
 
+#define TOTAL_NO_GATES 4
 
 #include "typedefs.h"
 #include <stdio.h>
@@ -57,9 +58,9 @@ typedef struct traffic_t
 {
     lane_jumper_t lane_jumpers_s;
 
-    u8 traffic_car_body[3];
+    u8 traffic_car_body[TOTAL_NO_GATES];
 
-    traffic_light_states light_state[3];
+    traffic_light_states light_state[TOTAL_NO_GATES];
 
     bool traffic_emergency_vehicle;
 
@@ -71,12 +72,14 @@ typedef struct traffic_t
     u8 lane_select;
     u8 next_lane_select;
 
+    u8 lane_with_max_peds;
+
     bool lane2_gate;
 
 
     bool pedestrian_request;
 
-    u8 pedestrian_count;
+    u8 pedestrian_count[TOTAL_NO_GATES];
 
     u8 yellowlight_countdown;
     /**
@@ -88,7 +91,7 @@ typedef struct traffic_t
     /**
      * How much time the lanes have waited.
      */
-    u8 lanes_redlight_waited[3];
+    u8 lanes_redlight_waited[TOTAL_NO_GATES];
 
 }traffic_t;
 
